@@ -1,0 +1,9 @@
+venv
+datasets
+model_jingwei/checkpoints
+model_jingwei/datasets
+model_jingwei
+data
+cache
+pycache
+.idea
