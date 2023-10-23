@@ -84,10 +84,11 @@ def run():
     # files = files_response.json()["files"]
     # selected_file = st.selectbox("Select an Image:", files)
 
-    args = get_args()
-    exp = Exp_OWL(args)
+
 
     if st.button('Run'):
+        args = get_args()
+        exp = Exp_OWL(args)
         if option == 'In-Distribution feature extraction':
             exp.id_feature_extract()
             st.success('In-distribution features extracted successfully !')

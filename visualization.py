@@ -101,18 +101,41 @@ def visuuu():
     available_files = [f for f in os.listdir('/Users/apagnoux/PycharmProjects/pythonProject2/cache/') if f.endswith('.npz')]
 
     # Allow the user to select a file
-    selected_id_file = st.selectbox('Select the ID data file:', available_files, index=0)
-    selected_ood_file = st.selectbox('Select the OOD data file:', available_files, index=1)
+    # selected_id_file = st.selectbox('Select the ID data file:', available_files, index=0)
+    selected_id_file = 'CIFAR-10_train_resnet18-supcon_in_alllayers.npz'
+    # selected_ood_file = st.selectbox('Select the OOD data file:', available_files, index=1)
+
+    ood_files = [f for f in available_files if not f.startswith('CIFAR-10_')]
+
+    # Allow the user to select an OOD file
+    selected_ood_file = st.selectbox('Select the OOD data file:', ood_files)
 
     # Commented out the OOD Detection for now since it's not the focus
     # of your current request
+
+    # if st.button("Show Graph"):
+    #     # Load and process the data
+    #     id_feat, id_label = load_id_data(selected_id_file)
+    #     ood_feat, ood_score = load_ood_data(selected_ood_file)
+    #
+    #     # Display UMAP visualization
+    #     # st.pyplot(plot_tsne(id_feat, id_label, ood_feat, ood_score))
+    #     st.pyplot(plot_umap_v2(id_feat, id_label, ood_feat, ood_score))
+
+    visualization_options = ["UMAP", "T-SNE"]
+    selected_visualizations = st.multiselect("Choose visualization methods:", visualization_options,
+                                             default=visualization_options)
 
     if st.button("Show Graph"):
         # Load and process the data
         id_feat, id_label = load_id_data(selected_id_file)
         ood_feat, ood_score = load_ood_data(selected_ood_file)
 
-        # Display UMAP visualization
-        # st.pyplot(plot_tsne(id_feat, id_label, ood_feat, ood_score))
-        st.pyplot(plot_umap_v2(id_feat, id_label, ood_feat, ood_score))
+        if "UMAP" in selected_visualizations:
+            st.write("UMAP Visualization:")
+            st.pyplot(plot_umap_v2(id_feat, id_label, ood_feat, ood_score))
+
+        if "T-SNE" in selected_visualizations:
+            st.write("T-SNE Visualization:")
+            st.pyplot(plot_tsne(id_feat, id_label, ood_feat, ood_score))
 
