@@ -1,0 +1,11 @@
+venv
+datasets
+model_jingwei/checkpoints
+model_jingwei/datasets
+data
+cache
+pycache
+.idea
+metadata_id_train.json
+metadata_id_val.json
+metadata_ood.json
