@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from ..utils.mahalanobis_lib import get_Mahalanobis_score, get_ModedMaha_score
-from ..utils.gram_matrix_lib import compute_deviations
-from ..utils.influence_lib import calc_loss
+from utils.mahalanobis_lib import get_Mahalanobis_score, get_ModedMaha_score
+from utils.gram_matrix_lib import compute_deviations
+from utils.influence_lib import calc_loss
 from torch.autograd import grad
 
 

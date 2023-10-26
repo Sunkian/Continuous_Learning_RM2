@@ -10,10 +10,10 @@ import torchvision.transforms as transforms
 from sklearn.linear_model import LogisticRegressionCV
 import numpy as np
 import time
-from ..utils.metrics import compute_traditional_ood, compute_in
-from ..utils.args_loader import get_args
-from ..utils.data_loader import get_loader_in, get_loader_out
-from ..utils.model_loader import get_model
+from utils.metrics import compute_traditional_ood, compute_in
+from utils.args_loader import get_args
+from utils.data_loader import get_loader_in, get_loader_out
+from utils.model_loader import get_model
 
 
 LAYERS = 5

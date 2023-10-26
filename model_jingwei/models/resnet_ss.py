@@ -286,6 +286,7 @@ class ResNetCifar(AbstractResNet):
     def forward(self, x, fc_params=None, out_type='supcon'):
         feat = self.features(x)
         feat = self.avgpool(feat)
+        # TODO-JZ: why dimension=512?
         feat = feat.view(feat.size(0), -1)
         return {
             'supcon': self.head(feat),

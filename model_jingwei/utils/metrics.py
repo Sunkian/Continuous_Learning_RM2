@@ -7,10 +7,6 @@ import sys
 from scipy import misc
 import numpy as np
 from ..ylib.yplot import plot_distrib
-# from model_jingwei.ylib.yplot import plot_distrib
-
-
-
 
 def cal_metric(known, novel, method=None):
     # 'known' is the L2 distance between ID testing samples and their k-th nearest neighbor in training set

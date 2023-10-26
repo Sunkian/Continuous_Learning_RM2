@@ -7,7 +7,6 @@ import torch.nn as nn
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
-
     def __init__(self, temperature=0.07, contrast_mode='all',
                  base_temperature=0.07):
         super(SupConLoss, self).__init__()
@@ -87,15 +86,16 @@ class SupConLoss(nn.Module):
 
         # compute mean of log-likelihood over positive
         # mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
-
+        
         # avoid nan loss when there's one sample for a certain class, e.g., 0,1,...1 for bin-cls , this produce nan for 1st in Batch
         # which also results in batch total loss as nan. such row should be dropped
-        pos_per_sample = mask.sum(1)  # B
-        pos_per_sample[pos_per_sample < 1e-6] = 1.0
-        mean_log_prob_pos = (mask * log_prob).sum(1) / pos_per_sample  # mask.sum(1)
+        pos_per_sample=mask.sum(1) #B
+        pos_per_sample[pos_per_sample<1e-6]=1.0
+        mean_log_prob_pos = (mask * log_prob).sum(1) / pos_per_sample #mask.sum(1)
 
         # loss
         loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
         loss = loss.view(anchor_count, batch_size).mean()
 
         return loss
+    

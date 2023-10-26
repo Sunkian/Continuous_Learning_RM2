@@ -1,6 +1,6 @@
 import torch
 
-from ..ylib.yplot import plot_lines, plot_distrib
+from ylib.yplot import plot_lines, plot_distrib
 
 def esn(loc, scale, epsilon, num_samples):
     U = torch.rand(num_samples)
