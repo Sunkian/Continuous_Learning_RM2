@@ -141,6 +141,7 @@ def get_loader_out(args, dataset=('tim', 'noise'), config_type='default', split=
             val_ood_loader = torch.utils.data.DataLoader(SVHN('/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/model_jingwei/datasets/ood_data/svhn/', split='test', transform=transform_test, download=False),
                                                        batch_size=batch_size, shuffle=False,
                                                         num_workers=2)
+
         elif val_dataset == 'dtd':
             transform = config.transform_test_largescale if args.in_dataset in {'imagenet'} else config.transform_test
             val_ood_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder(root="datasets/ood_data/dtd/images", transform=transform),
@@ -192,7 +193,7 @@ def get_loader_out(args, dataset=('tim', 'noise'), config_type='default', split=
                 LowFreqRandom(image_size=imagesize, data_size=10000),
                 batch_size=batch_size, shuffle=False, num_workers=2)
         else:
-            val_ood_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder("/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/model_jingwei/datasets/ood_data/{}".format(val_dataset),
+            val_ood_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder("/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/data/images/",
                                                           transform=transform_test), batch_size=batch_size, shuffle=False, num_workers=2)
 
     return EasyDict({

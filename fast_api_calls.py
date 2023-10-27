@@ -42,8 +42,9 @@ class UpdateData(BaseModel):
     file_name: str
     bool_ood: bool
     scores_conf: float
-    pred_scores: float
-    pred_labels: int
+    # pred_scores: float
+    # pred_labels: int
+    # unknown_idx: int
 
 def unpickle(file):
     with open(file, 'rb') as fo:
@@ -216,10 +217,11 @@ async def update_results(data: List[UpdateData]):
             {"file_name": item.file_name},
             {
                 "$set": {
+                    # "unknown_idx" : item.unknown_idx,
                     "bool_ood": item.bool_ood,
                     "scores_conf": item.scores_conf,
-                    "pred_scores": item.pred_scores,
-                    "pred_labels": item.pred_labels,
+                    # "pred_scores": item.pred_scores,
+                    # "pred_labels": item.pred_labels,
                 }
             },
         )
@@ -231,6 +233,7 @@ async def update_results(data: List[UpdateData]):
 async def get_ood_images():
     ood_images = list(collection.find({"bool_ood": True}, {"_id": 0, "file_path": 1, "file_name": 1}))
     return ood_images
+
 
 
 

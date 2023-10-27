@@ -35,7 +35,7 @@ class Exp_OWL(Exp_OWLbasic):
     def __init__(self, args):
         super(Exp_OWL, self).__init__(args)  ## init device
 
-        # save path for checkpoints and classifiers 
+        # save path for checkpoints and classifiers
         # self.save_path = "./checkpoints/CIFAR-10/resnet18-supcon/"
         self.save_path = "/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/model_jingwei/checkpoints/{}/{}/".format(
             self.args.in_dataset,
@@ -158,16 +158,24 @@ class Exp_OWL(Exp_OWLbasic):
             ood_label = np.zeros(len(dataloader.dataset))
 
             model.eval()
+            processed_samples = 0  # Add this before the for loop
+
             for batch_idx, (inputs, targets) in enumerate(dataloader):
-                # print('INPUTS', inputs)
-                # print('TARGET', targets)
                 inputs = inputs.to(self.device)
-                start_ind = batch_idx * batch_size
-                end_ind = min((batch_idx + 1) * batch_size, len(dataloader.dataset))
+                actual_batch_size = inputs.shape[0]
+
+                start_ind = processed_samples
+                end_ind = start_ind + actual_batch_size
+
+                print(
+                    f"start_ind: {start_ind}, end_ind: {end_ind}, actual_batch_size: {actual_batch_size}")  # Debugging line
 
                 out = model(inputs)
                 ood_feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
                 ood_label[start_ind:end_ind] = targets.detach().cpu().numpy()
+
+                processed_samples += actual_batch_size  # Update the total processed samples
+
                 if batch_idx % 100 == 0:
                     print(f"ood batches: {batch_idx}/{len(dataloader)}")
             # save features and ground truth (if any)

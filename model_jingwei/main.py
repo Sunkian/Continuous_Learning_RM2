@@ -12,7 +12,15 @@ import numpy as np
 from .exp.exp_OWL import Exp_OWL
 from .utils.data_loader import get_loader_in, get_loader_out
 import streamlit as st
-from .utils.custom_loader import GenericImageDataset
+# from .utils.custom_loader import GenericImageDataset
+from .utils.new_custom_loader import  CustomDataset
+
+import torchvision.transforms as transforms
+
+transformations = transforms.Compose([
+    transforms.Resize((32, 32)),  # Resize to the desired size
+    transforms.ToTensor()
+])
 
 
 BASE_API_URL = "http://127.0.0.1:8000"  # Replace with your FastAPI server address
@@ -93,26 +101,58 @@ def new_code():
         ##### RUN NS_FEATURE EXTRACT #################################
         ##### HERE, CHANGE THE DATA LOADER TO MINE #################################
         # print('>>>>>>>start feature extraction on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(selected_dataset))
-        loader_out = get_loader_out(args, dataset=(None, 'SVHN'), split=('val'))
-        val_loader_out = loader_out.val_ood_loader  # take the val/test batch of the ood data
-        # ood_data = GenericImageDataset(source=selected_dataset, mode='external', transform=transform_test)
-        # out_loader = DataLoader(ood_data, batch_size=args.batch_size, shuffle=False)
-        # # # print(out_loader)
-        exp.ns_feature_extract(exp.model, val_loader_out, 'SVHN')
+        # # loader_out = get_loader_out(args, dataset=(None, 'SVHN'), split=('val'))
+        # # val_loader_out = loader_out.val_ood_loader  # take the val/test batch of the ood data
+        # # ood_data =  CustomDataset(source=selected_dataset, transform=transform_test)
+        # # out_loader = DataLoader(ood_data, batch_size=32, shuffle=False,
+        # #                                                 num_workers=2)
+        #
+        # # --->
+        # dataset = CustomDataset(dataset_name=selected_dataset, transform=transformations)
+        # data_loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+        # # # <---
+        # # # # # print(out_loader)
+        # exp.ns_feature_extract(exp.model, data_loader, selected_dataset)
 
         print('>>>>>>>start ood detection on new-coming data : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(args.out_datasets))
         unknown_idx,scores_conf, bool_ood = exp.ood_detection(selected_dataset, K=50)
 
+        update_data = []
+        for idx, file_name in enumerate(files):  # Assuming 'files' contains the list of file names in the dataset
+            update_data.append({
+                # "file_name": file_name,
+                # # "unknown_idx" : str(unknown_idx),
+                # "bool_ood": str(bool_ood[idx]),
+                # "scores_conf": str(scores_conf[idx]),
+                "file_name": file_name,
+                "bool_ood": bool(bool_ood[idx]),
+                "scores_conf": float(scores_conf[idx]),
+            })
+
+        # print(update_data)
+
+        # Send POST request to update the results
+        response = requests.post(f"{BASE_API_URL}/update_results/", json=update_data)
+        print(response.content)
+        if response.status_code == 200:
+            st.success("Data updated successfully!")
+        else:
+            st.error("Failed to update data!")
+
         print(f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
         st.write(f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
 
-        print(
-            '>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(args.out_datasets))
-        ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
-        n_ood = 50  # take 50 ood samples
-        exp.train_global(selected_dataset, True, ood_class, n_ood)
-        print('DONE')
-        st.write('DONE')
+
+
+
+
+        #
+        # print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(selected_dataset))
+        # ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
+        # n_ood = 50  # take 50 ood samples
+        # exp.train_global(selected_dataset, True, ood_class, n_ood)
+        # print('DONE')
+        # st.write('DONE')
 
 
         torch.cuda.empty_cache()

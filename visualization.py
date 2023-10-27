@@ -13,25 +13,27 @@ CLASS_NAMES = ["airplane", "automobile", "bird", "cat", "deer",
                "dog", "frog", "horse", "ship", "truck"]
 
 def load_local_npz(file_name):
-    with np.load(f"/Users/apagnoux/PycharmProjects/pythonProject2/cache/{file_name}") as data:
+    with np.load("/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/cache/CIFAR-10_val_resnet18-supcon.npz") as data:
         return dict(data)
 
 def load_id_data(file_name):
     # Load ID data
     data = load_local_npz(file_name)
     id_feat = data['feat_log']
-    id_label = data['label_log']
+    id_label = data['label']
     return id_feat, id_label
 
 def load_ood_data(file_name):
     # Load OOD data
     data = load_local_npz(file_name)
-    ood_feat = data['ood_feat_log']
-    ood_score = data['ood_score_log'][:, 0]
+    ood_feat = data['feat_log']
+    ood_score = data['label']  # Note: This is a bit misleading, the name 'score' typically doesn't refer to labels
     return ood_feat, ood_score
-
 def plot_tsne(id_feat, id_label, ood_feat, ood_score):
     # Combine both ID and OOD features for UMAP fitting
+
+
+
     combined_features = np.vstack((id_feat, ood_feat))
 
     # Use UMAP for dimensionality reduction
@@ -65,6 +67,11 @@ def plot_tsne(id_feat, id_label, ood_feat, ood_score):
 
 
 def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
+
+    print(f"id_feat shape: {id_feat.shape}")
+    print(f"ood_feat shape: {ood_feat.shape}")
+    st.write(f"id_feat shape: {id_feat.shape}")
+    st.write(f"ood_feat shape: {ood_feat.shape}")
     # Combine both ID and OOD features for UMAP fitting
     combined_features = np.vstack((id_feat, ood_feat))
 
@@ -79,10 +86,9 @@ def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
     fig, ax = plt.subplots(figsize=(10, 8))
 
     # Plot ID
-    scatter_id = ax.scatter(embedding_id[:, 0], embedding_id[:, 1], c=id_label, cmap='tab10', s=5, label='ID')
+    scatter_id = ax.scatter(embedding_id[:, 0], embedding_id[:, 1], c='blue', s=5, label='ID')
     # Plot OOD
-    scatter_ood = ax.scatter(embedding_ood[:, 0], embedding_ood[:, 1], c=ood_score, cmap='viridis', s=5, label='OOD',
-                             alpha=0.6)
+    scatter_ood = ax.scatter(embedding_ood[:, 0], embedding_ood[:, 1], c='black', s=5, label='OOD', alpha=0.6)
 
     # Create a legend
     ax.legend(handles=[scatter_id, scatter_ood], loc='upper right')
@@ -98,7 +104,7 @@ def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
 def visuuu():
     st.title(f"T-SNE Visualization of ID vs TEST Embeddings on the same graph")
 
-    available_files = [f for f in os.listdir('/Users/apagnoux/PycharmProjects/pythonProject2/cache/') if f.endswith('.npz')]
+    available_files = [f for f in os.listdir('/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/cache/') if f.endswith('.npz')]
 
     # Allow the user to select a file
     # selected_id_file = st.selectbox('Select the ID data file:', available_files, index=0)
