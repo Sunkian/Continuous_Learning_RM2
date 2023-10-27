@@ -258,7 +258,7 @@ class Exp_OWL(Exp_OWLbasic):
         :return pred_labels: the class predictions
 
         """
-        id_name = self.args.in_dataset
+        id_name = self.args.in_dataset + "_ft"
         caches_id = self.read_id(id_name)
         caches_ood = self.read_ood(ood_name)
         feat_id_train = caches_id["id_feat_train"]
