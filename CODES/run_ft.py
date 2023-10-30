@@ -1,6 +1,14 @@
 import streamlit as st
 import requests
-BASE_API_URL = "http://127.0.0.1:8000"  # Replace with your FastAPI server address
+import argparse
+import requests
+from model_jingwei.utils.args_loader import get_args
+from model_jingwei.exp.exp_OWL import Exp_OWL
+from model_jingwei.exp.exp_OWL import Exp_OWL
+
+import torch
+
+BASE_API_URL = "http://127.0.0.1:8000"
 
 
 def fetch_datasets():
@@ -20,15 +28,31 @@ def fetch_datasets():
     datasets = response.json().get("datasets", [])
     return datasets
 
+
 def run_ft():
-    option = st.selectbox('Select an option :',
-                              ('Inference',
-                               'Fine-Tune'))
+    parser = argparse.ArgumentParser()
+    args = get_args()
 
-    datasets = fetch_datasets()
+    exp = Exp_OWL(args)  # set experiments
 
-    batch = st.selectbox('Select an data batch :',
-                          datasets)
+    if st.button('Extract ID features'):
+        exp.id_feature_extract(exp.model, args.in_dataset)
+        # st.success('In-distribution features extracted successfully !')
+        # response = requests.post(f"{BASE_API_URL}/store_metadata/")
+        # if response.status_code == 200:
+        #     st.success(response.json().get("status", "Metadata stored successfully!"))
+        # else:
+        #     st.error("Failed to store metadata!")
+        st.write('Id features put in metadata')
 
-
-print('HELLO')
+    # option = st.selectbox('Select an option :',
+    #                       ('Inference',
+    #                        'Fine-Tune'))
+    #
+    # datasets = fetch_datasets()
+    #
+    # batch = st.selectbox('Select an data batch :',
+    #                      datasets)
+    # if st.button('Run'):
+    #     if option == 'Inference':
+    #         st.write('Inference selected')

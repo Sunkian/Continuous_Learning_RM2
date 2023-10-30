@@ -8,19 +8,19 @@ from intro import intro
 from visualization import visuuu
 from model_jingwei.main import new_code
 
-from CODES.run_ft import run_ft
+
 
 st.set_page_config(page_title="Continuous Learning App")
 
-val = stx.stepper_bar(steps=["Upload", "Run", "VISU"])
+val = stx.stepper_bar(steps=["Upload", "Run"])
 
 if val == 0:
     upload()
 elif val == 1:
-    run_ft()
     # new_code()
-elif val == 2:
-    review()
+    run()
+# elif val == 2:
+#     review()
 # elif val == 3:
 #     review()
 #

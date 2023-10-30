@@ -27,6 +27,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["continuous-learning"]
 collection = db["data"]
 collection2 = db["id_metadata_collection"]
+collection3 = db["id_metadata_collection_TEST"]
 fs = GridFS(db)
 
 train_collection = db["train"]
@@ -154,6 +155,49 @@ async def store_metadata():
             test_collection.insert_one(test_metadata)
 
     return {"status": "Metadata stored successfully for each image"}
+
+
+class FeatureData(BaseModel):
+    data_name: str
+    dataset_split: str
+    feat_log: list
+    label: int
+    repr_flag: bool = None  # If this is optional
+
+@app.post("/push_feature_data/")
+async def push_feature_data(data: FeatureData):
+    # Determine the correct collection based on the dataset_split
+    if data.dataset_split == "train":
+        collection = train_collection
+    elif data.dataset_split == "val":  # Assuming 'val' means 'test' in your context
+        collection = test_collection
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown dataset split: {data.dataset_split}")
+
+    # Insert the data into the appropriate MongoDB collection
+    collection.insert_one(data.dict())
+
+    return {"message": f"Data for {data.data_name} inserted successfully into {data.dataset_split} collection!"}
+
+
+
+class OODFeatureData(BaseModel):
+    ood_feat_log: List[float]
+    ood_label: int
+
+@app.post("/push_ood_feature_data/")
+async def push_ood_feature_data(data: OODFeatureData):
+    document = {
+        "ood_feat_log": data.ood_feat_log,
+        "ood_label": data.ood_label,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+    result = collection.insert_one(document)
+    if result:
+        return {"status": "success", "message": "Successfully added OOD feature data to the collection."}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to add OOD feature data to the collection.")
+
 
 # =================================================================
 

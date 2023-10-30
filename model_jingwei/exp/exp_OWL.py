@@ -4,10 +4,11 @@ import time
 import warnings
 import math
 import random
-
+import json
 import faiss
 import numpy as np
 import pandas as pd
+import requests
 import torch
 import torchvision
 import torch.nn.functional as F
@@ -86,6 +87,8 @@ class Exp_OWL(Exp_OWLbasic):
         # self.classifier_init.load_state_dict(ckpt['state_dict'])
         # self.classifier_init.eval()
 
+        all_metadata = []
+
         # 'val'/'test' loader: to get the threshold distance in ID data and check if a sample is OOD
         for split, in_loader in [('train', self.trainloaderIn), ('val', self.testloaderIn), ]:
             # why testing data in in-distribution data?
@@ -109,9 +112,34 @@ class Exp_OWL(Exp_OWLbasic):
                     # score_log[start_ind:end_ind, :] = score.detach().cpu().numpy()
                     label[start_ind:end_ind] = targets.detach().cpu().numpy()
 
+
+                    for idx in range(start_ind, end_ind):
+                        metadata = {
+                            'data_name': f'data_{idx}',  # Replace with actual data name if available
+                            'dataset_split': split,
+                            'feat_log': feat_log[idx].tolist(),
+                            'label': int(label[idx]),
+                            'repr_flag': None  # Or whatever logic you use to set this
+                        }
+
+                        # print('HELLO')
+                        # print(metadata)
+
+                        # Send a POST request to the FastAPI route
+                        response = requests.post("http://127.0.0.1:8000/push_feature_data/", json=metadata)
+                        # if response.status_code == 200:
+                        #     print(f"Pushed data for data_{idx} successfully!")
+                        # else:
+                        #     print(f"Failed to push data for data_{idx}!")
+                        all_metadata.append(metadata)
+
+
                     if batch_idx % 100 == 0:
                         print(f"id batches: {batch_idx}/{len(in_loader)}")
                 print("feature shape, feat_log: {}, label: {}".format(feat_log.shape, label.shape))
+
+                # with open(f'/metadata_id_{split}.json', 'w') as json_file:  # The filename is now dynamic based on split
+                #     json.dump(all_metadata, json_file)
                 np.savez(cache_name, feat_log=feat_log, label=label)
                 # np.savez(cache_name, feat_log = feat_log, score_log = score_log, label = label)
             else:
@@ -174,6 +202,8 @@ class Exp_OWL(Exp_OWLbasic):
                 ood_feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
                 ood_label[start_ind:end_ind] = targets.detach().cpu().numpy()
 
+
+
                 processed_samples += actual_batch_size  # Update the total processed samples
 
                 if batch_idx % 100 == 0:
@@ -185,6 +215,9 @@ class Exp_OWL(Exp_OWLbasic):
             data = np.load(cache_name, allow_pickle=True)
             ood_feat_log = data['ood_feat_log']
             ood_label = data['ood_label']
+
+            print(ood_feat_log)
+            print(ood_label)
 
         print(f"Time for Feature extraction over OOD dataset: {time.time() - begin}")
 
