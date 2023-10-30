@@ -180,23 +180,28 @@ async def push_feature_data(data: FeatureData):
     return {"message": f"Data for {data.data_name} inserted successfully into {data.dataset_split} collection!"}
 
 
-
-class OODFeatureData(BaseModel):
-    ood_feat_log: List[float]
+class OODUpdate(BaseModel):
+    file_name: str  # to identify which document to update
+    ood_feat_log: List[float]  # since it seems like a list of floats from your function
     ood_label: int
 
-@app.post("/push_ood_feature_data/")
-async def push_ood_feature_data(data: OODFeatureData):
-    document = {
-        "ood_feat_log": data.ood_feat_log,
-        "ood_label": data.ood_label,
-        "timestamp": datetime.datetime.now().isoformat()
+
+@app.post("/update_ood_data/")
+async def update_ood_data(data: OODUpdate):
+    query = {"file_name": data.file_name}
+    update = {
+        "$set": {
+            "ood_feat_log": data.ood_feat_log,
+            "ood_label": data.ood_label
+        }
     }
-    result = collection.insert_one(document)
-    if result:
-        return {"status": "success", "message": "Successfully added OOD feature data to the collection."}
+
+    result = collection.update_one(query, update)
+
+    if result.modified_count == 1:
+        return {"status": "success", "message": f"Document with file_name {data.file_name} updated."}
     else:
-        raise HTTPException(status_code=500, detail="Failed to add OOD feature data to the collection.")
+        raise HTTPException(status_code=400, detail=f"Could not update document with file_name {data.file_name}.")
 
 
 # =================================================================

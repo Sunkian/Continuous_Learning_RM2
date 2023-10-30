@@ -188,12 +188,14 @@ class Exp_OWL(Exp_OWLbasic):
             model.eval()
             processed_samples = 0  # Add this before the for loop
 
-            for batch_idx, (inputs, targets) in enumerate(dataloader):
+            for batch_idx, (inputs, targets, filenames) in enumerate(dataloader):
                 inputs = inputs.to(self.device)
                 actual_batch_size = inputs.shape[0]
 
                 start_ind = processed_samples
                 end_ind = start_ind + actual_batch_size
+
+                # print('INPUUTS:', targets)
 
                 print(
                     f"start_ind: {start_ind}, end_ind: {end_ind}, actual_batch_size: {actual_batch_size}")  # Debugging line
@@ -202,7 +204,18 @@ class Exp_OWL(Exp_OWLbasic):
                 ood_feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
                 ood_label[start_ind:end_ind] = targets.detach().cpu().numpy()
 
-
+                for idx, filename in enumerate(filenames):
+                    update_data = {
+                        'file_name': filename,  # use the actual filename from the dataset
+                        'ood_feat_log': ood_feat_log[start_ind + idx].tolist(),
+                        'ood_label': int(ood_label[start_ind + idx])
+                    }
+                    response = requests.post("http://127.0.0.1:8000/update_ood_data/", json=update_data)
+                    print(response.content)
+                    if response.status_code == 200:
+                        print(f"Updated data for {filename} successfully!")
+                    else:
+                        print(f"Failed to update data for {filename}!")
 
                 processed_samples += actual_batch_size  # Update the total processed samples
 
@@ -216,8 +229,8 @@ class Exp_OWL(Exp_OWLbasic):
             ood_feat_log = data['ood_feat_log']
             ood_label = data['ood_label']
 
-            print(ood_feat_log)
-            print(ood_label)
+            # print(ood_feat_log)
+            # print(ood_label)
 
         print(f"Time for Feature extraction over OOD dataset: {time.time() - begin}")
 
