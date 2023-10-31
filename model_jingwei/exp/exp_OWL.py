@@ -252,13 +252,25 @@ class Exp_OWL(Exp_OWLbasic):
         prepos_feat = lambda x: np.ascontiguousarray(
             normalizer(x))  # Last Layer only ## x is changed from multi-layer features to single-layer features
 
+
         for split in ['train', 'val']:
-            cache_name = self.cache_path + f"{id_name}_{split}_{self.args.name}.npz"
-            data = np.load(cache_name, allow_pickle=True)
-            caches["id_feat_" + split] = data['feat_log']
-            # caches["id_score_" + split] = data['score_log']
-            caches["id_label_" + split] = data['label']
-            caches["id_feat_" + split] = prepos_feat(caches["id_feat_" + split])  # (N, 512)
+            # cache_name = self.cache_path + f"{id_name}_{split}_{self.args.name}.npz"
+            # data = np.load(cache_name, allow_pickle=True)
+            if split == 'train':
+                response = requests.get('http://127.0.0.1:8000/get_train_data/')
+                data = response.json()
+            elif split == 'val':
+                response = requests.get('http://127.0.0.1:8000/get_test_data/')
+                data = response.json()
+
+            feat_logs_list = []
+            labels_list = []
+            for item in data['data']:
+                feat_logs_list.append(item['feat_log'])
+                labels_list.append(item['label'])
+
+            caches["id_feat_" + split] = prepos_feat(np.array(feat_logs_list))
+            caches["id_label_" + split] = np.array(labels_list)
 
         return caches
 
@@ -276,10 +288,23 @@ class Exp_OWL(Exp_OWLbasic):
         prepos_feat = lambda x: np.ascontiguousarray(
             normalizer(x))  # Last Layer only ## x is changed from multi-layer features to single-layer features
 
-        cache_name = f"{self.cache_path}/{ood_name}vs{self.args.in_dataset}_{self.args.name}.npz"
-        data = np.load(cache_name, allow_pickle=True)
-        caches['ood_feat'] = prepos_feat(data['ood_feat_log'])  # (N, 512)
-        caches["ood_label"] = data['ood_label']
+        # Fetch data from the route instead of loading from cache_name
+        response = requests.get('http://127.0.0.1:8000/get_ood_data/')
+        data = response.json()
+
+        feat_logs_list = []
+        labels_list = []
+        names = []
+        for item in data['data']:
+            feat_logs_list.append(item['ood_feat_log'])
+            labels_list.append(item['ood_label'])
+            names.append(item['file_name'])
+
+        caches['ood_feat'] = prepos_feat(np.array(feat_logs_list))
+        caches["ood_label"] = np.array(labels_list)
+        caches["names"] = names
+
+        # print(caches)
 
         return caches
 
@@ -304,13 +329,25 @@ class Exp_OWL(Exp_OWLbasic):
         :return pred_labels: the class predictions
 
         """
-        id_name = self.args.in_dataset + "_ft"
+        id_name = self.args.in_dataset
+        # id_name = self.args.in_dataset + "_ft" #### For fine-tuning !!
+
+# Lire les features directement à partir de la base de données updatée
         caches_id = self.read_id(id_name)
         caches_ood = self.read_ood(ood_name)
+
+
         feat_id_train = caches_id["id_feat_train"]
         feat_id_val = caches_id["id_feat_val"]
         feat_ood = caches_ood['ood_feat']
 
+        names = caches_ood['names']
+
+        print(names)
+
+
+
+        print('SHAPE', feat_id_train.shape)
         # Out-of-distribution(OOD) detection
         index = faiss.IndexFlatL2(feat_id_train.shape[1])
         index.add(feat_id_train)
@@ -355,6 +392,20 @@ class Exp_OWL(Exp_OWLbasic):
             # condition: score_ns < 0
             # TODO: to check the max value of score_conf when score_ns = 0
             scores_conf = 1 / (1 + np.exp(-(scores_ns - threshold)))
+
+            for idx, filename in enumerate(names):
+                update_data = {
+                    'file_name': filename,  # use the actual filename from the dataset
+                    'bool_ood': bool(bool_ood[idx]),
+                    'scores_conf': float(scores_conf[idx])
+                }
+                response = requests.post("http://127.0.0.1:8000/update_ood_data2/", json=update_data)
+                print(response.content)
+                if response.status_code == 200:
+                    print(f"Updated data for {filename} successfully!!!!")
+                else:
+                    print(f"Failed to update data for {filename}!")
+
 
             # load the class prediction scores by the base model
         # caches_ood["ood_score"] = caches_ood['ood_score']  # shape: (N, C)
@@ -422,7 +473,7 @@ class Exp_OWL(Exp_OWLbasic):
         y_ood = np.array([y for _, y in self.val_loader_out.dataset])  # (N)
 
         # sampling ood/new coming data with one/multiple classes
-        # samples_ood/id_idx : {class: indices}, the representative instances are randomly sampled
+        # samples_ood/id_idx : {class: indices}, the representatfive instances are randomly sampled
         # TODO caching mechanism: cache the most representative samples for fine-tuning
         #       e.g., representatiove sample selection with kNNs of the cluster centroids
         samples_ood_idx = self.sample_instances(y_ood, num_samples=n_ood)

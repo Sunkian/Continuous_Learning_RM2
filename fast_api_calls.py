@@ -4,12 +4,14 @@ import json
 import pickle
 import shutil
 
+from bson import ObjectId
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Path as FastAPIPath
 from typing import Dict, Union
 from pathlib import Path
 import os
 from pydantic import BaseModel
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 from starlette.responses import JSONResponse
 from starlette.requests import Request
 from fastapi import FastAPI
@@ -185,6 +187,10 @@ class OODUpdate(BaseModel):
     ood_feat_log: List[float]  # since it seems like a list of floats from your function
     ood_label: int
 
+class OODUpdate2(BaseModel):
+    file_name: str  # to identify which document to update
+    bool_ood: bool # since it seems like a list of floats from your function
+    scores_conf: float
 
 @app.post("/update_ood_data/")
 async def update_ood_data(data: OODUpdate):
@@ -204,6 +210,77 @@ async def update_ood_data(data: OODUpdate):
         raise HTTPException(status_code=400, detail=f"Could not update document with file_name {data.file_name}.")
 
 
+
+@app.post("/update_ood_data2/")
+async def update_ood_data2(data: OODUpdate2):
+    query = {"file_name": data.file_name}
+    update = {
+        "$set": {
+            "bool_ood": data.bool_ood,
+            "scores_conf": data.scores_conf
+        }
+    }
+
+    result = collection.update_one(query, update)
+
+    if result.modified_count == 1:
+        return {"status": "success", "message": f"Document with file_name {data.file_name} updated."}
+    else:
+        raise HTTPException(status_code=400, detail=f"Could not update document with file_name {data.file_name}.")
+
+
+
+# class ScoresUpdate(BaseModel):
+#     ood_feat_log: List[float] # to identify which document to update
+#     scores_conf: float
+#     bool_ood: bool
+#
+#
+# @app.post("/update_scores/")
+# async def update_scores(data: ScoresUpdate):
+#     # Define the query and the update to be made
+#     query = {"ood_feat_log": data.ood_feat_log}
+#     update = {
+#         "$set": {
+#             "scores_conf": data.scores_conf,
+#             "bool_ood": data.bool_ood
+#         }
+#     }
+#
+#     # Update the document in the MongoDB collection
+#     result = collection.update_one(query, update)
+#
+#     # Return success message if the document was updated, else throw an error
+#     if result.modified_count == 1:
+#         return {"status": "success", "message": f"Document with file_name {data.ood_feat_log} updated."}
+#     else:
+#         raise HTTPException(status_code=400, detail=f"Could not update document with file_name {data.ood_feat_log}.")
+
+
+class UpdateModel(BaseModel):
+    name: str
+    bool_ood: bool
+    scores_conf: float
+
+@app.post("/update_data/")
+async def update_data(update: UpdateModel):
+    try:
+        filter = {"name": update.name}
+        newvalues = {"$set": {"bool_ood": update.bool_ood, "scores_conf": update.scores_conf}}
+        collection.update_one(filter, newvalues)
+        return {"status": "success"}
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update_database/")
+async def update_database(names: List[str], bool_ood: List[bool], scores_conf: List[Union[float, int]]):
+    try:
+        for name, b_ood, s_conf in zip(names, bool_ood, scores_conf):
+            update_query = {"$set": {"bool_ood": b_ood, "scores_conf": s_conf}}
+            collection.update_one({"name": name}, update_query)
+        return {"status": "success"}
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 # =================================================================
 
 @app.get("/list_datasets/")
@@ -304,3 +381,111 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
+
+
+# =================================================================
+
+
+# @app.get("/fetch_id_data/{id_name}/{split}/")
+# async def fetch_id_data(id_name: str, split: str) -> Dict:
+#     # Assuming id_name corresponds to data_name in MongoDB
+#     # split corresponds to dataset_split (either 'train' or 'val')
+#     fetched_data = list(
+#         train_collection.find({"data_name": id_name, "dataset_split": split})) if split == "train" else list(
+#         test_collection.find({"data_name": id_name, "dataset_split": split}))
+#
+#     return {"data": fetched_data}
+#
+#
+# @app.get("/fetch_ood_data/{ood_name}/")
+# async def fetch_ood_data(ood_name: str) -> Dict:
+#     # Assuming ood_name corresponds to the 'dataset' in the MongoDB collection
+#     fetched_data = list(collection.find({"dataset": ood_name}))
+#
+#     return {"data": fetched_data}
+
+
+
+# Fetch in-distribution data
+@app.get("/fetch_id_data/")
+async def fetch_id_data(data_name: str, dataset_split: str):
+    """
+    Fetch in-distribution data based on data_name and dataset_split
+    :param data_name: Name of the dataset e.g., CIFAR-10
+    :param dataset_split: 'train' or 'test' (assuming 'val' means 'test')
+    :return: feat_log and label from the database for in-distribution data
+    """
+    # Choose the right collection based on dataset_split
+    if dataset_split == "train":
+        collection = train_collection
+    elif dataset_split == "val":  # Assuming 'val' means 'test' in your context
+        collection = test_collection
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown dataset split: {dataset_split}")
+
+    # Query to fetch data
+    data = collection.find_one({"data_name": data_name}, {"feat_log": 1, "label": 1, "_id": 0})
+
+    if data:
+        return data
+    else:
+        raise HTTPException(status_code=404, detail=f"No data found for {data_name} in {dataset_split} collection.")
+
+
+@app.get("/fetch_ood_data/")
+async def fetch_ood_data(file_name: str):
+    """
+    Fetch out-of-distribution data based on file_name
+    :param file_name: Name of the file to identify which document to fetch
+    :return: ood_feat_log and ood_label from the database for out-of-distribution data
+    """
+    data = collection.find_one({"file_name": file_name}, {"ood_feat_log": 1, "ood_label": 1, "_id": 0})
+
+    if data:
+        return data
+    else:
+        raise HTTPException(status_code=404, detail=f"No data found for {file_name}.")
+
+
+
+@app.get("/get_train_data/")
+async def get_train_data():
+    try:
+        # Fetch all documents from the train_collection
+        cursor = train_collection.find({})
+        data = list(cursor)  # Convert the cursor to a list
+        # Removing ObjectId from the response
+        for item in data:
+            item["_id"] = str(item["_id"])
+        return {"data": data}
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/get_test_data/")
+async def get_test_data():
+    try:
+        # Fetch all documents from the train_collection
+        cursor = test_collection.find({})
+        data = list(cursor)  # Convert the cursor to a list
+        # Removing ObjectId from the response
+        for item in data:
+            item["_id"] = str(item["_id"])
+        return {"data": data}
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/get_ood_data/")
+async def get_ood_data():
+    try:
+        # Fetch all documents from the train_collection
+        cursor = collection.find({})
+        data = list(cursor)  # Convert the cursor to a list
+        # Removing ObjectId from the response
+        for item in data:
+            item["_id"] = str(item["_id"])
+        return {"data": data}
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))

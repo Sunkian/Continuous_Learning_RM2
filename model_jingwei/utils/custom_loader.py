@@ -78,4 +78,4 @@ class GenericImageDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, 0
+        return image, image_name

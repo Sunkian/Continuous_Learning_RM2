@@ -147,12 +147,12 @@ def new_code():
 
 
         #
-        # print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(selected_dataset))
-        # ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
-        # n_ood = 50  # take 50 ood samples
-        # exp.train_global(selected_dataset, True, ood_class, n_ood)
-        # print('DONE')
-        # st.write('DONE')
+        print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(selected_dataset))
+        ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
+        n_ood = 50  # take 50 ood samples
+        exp.train_global(selected_dataset, True, ood_class, n_ood)
+        print('DONE')
+        st.write('DONE')
 
 
         torch.cuda.empty_cache()

@@ -54,8 +54,28 @@ def fetch_image(image_name):
     return response.content
 
 
+def fetch_train_data():
+    # Specify the endpoint URL
+    url = "http://127.0.0.1:8000/get_train_data/"
+
+    # Make the GET request
+    response = requests.get(url)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        data = response.json()  # Parse the JSON response
+        # Print the first two results
+        print(data['data']['dataset_split'])
+        # for item in data['data'][:2]:
+        #     print(item['feat_log'])
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
+
+
 def run():
     # st.title("Model Inference / Fine-Tuning")
+    # if st.button('TEST'):
+    #     fetch_train_data()
 
     st.markdown("""
         
@@ -74,7 +94,10 @@ def run():
     option = st.selectbox('Select an option :',
                           ('ID feature extraction',
                            'NS feature extraction',
-                           'Out-Of-Distribution detection'))
+                           'OOD detection (Inference)',
+                           'Fine-Tune'))
+
+
 
     datasets = fetch_datasets()
     # st.write(datasets)
@@ -109,6 +132,53 @@ def run():
             exp.ns_feature_extract(exp.model, data_loader, selected_dataset)
 
             st.success('NS features extracted successfully !')
+
+
+
+        # =================================================================
+
+        if option == 'OOD detection (Inference)':
+            st.write('Hello')
+            unknown_idx, scores_conf, bool_ood = exp.ood_detection(selected_dataset, K=50)
+
+            # update_data = []
+            # for idx, file_name in enumerate(files):  # Assuming 'files' contains the list of file names in the dataset
+            #     update_data.append({
+            #         # "file_name": file_name,
+            #         # # "unknown_idx" : str(unknown_idx),
+            #         # "bool_ood": str(bool_ood[idx]),
+            #         # "scores_conf": str(scores_conf[idx]),
+            #         "file_name": file_name,
+            #         "bool_ood": bool(bool_ood[idx]),
+            #         "scores_conf": float(scores_conf[idx]),
+            #     })
+            #
+            # # print(update_data)
+            #
+            # # Send POST request to update the results
+            # response = requests.post(f"{BASE_API_URL}/update_results/", json=update_data)
+            # print(response.content)
+            # if response.status_code == 200:
+            #     st.success("Data updated successfully!")
+            # else:
+            #     st.error("Failed to update data!")
+
+            print(f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
+            st.write(
+                f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
         # elif option == 'New-Sample feature extraction':
