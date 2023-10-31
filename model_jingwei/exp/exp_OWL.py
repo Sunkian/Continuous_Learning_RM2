@@ -92,6 +92,8 @@ class Exp_OWL(Exp_OWLbasic):
         # 'val'/'test' loader: to get the threshold distance in ID data and check if a sample is OOD
         for split, in_loader in [('train', self.trainloaderIn), ('val', self.testloaderIn), ]:
             # why testing data in in-distribution data?
+
+            #  A ENLEVER, CHARGER DEPUIS LA BDD
             cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
             if not os.path.exists(cache_name):
                 # feat_log: the last layer features of ResNet
@@ -723,7 +725,7 @@ class Exp_OWL(Exp_OWLbasic):
         torch.save({"state_dict": self.model.state_dict()}, self.ft_model_path)
 
         classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
-
+# ICI, update la bdd
         # re-extract features for ID and OOD data using fine-tuned model
         self.id_feature_extract(self.model, self.args.in_dataset + "_ft")
         caches_id_ft = self.read_id(self.args.in_dataset + "_ft")
