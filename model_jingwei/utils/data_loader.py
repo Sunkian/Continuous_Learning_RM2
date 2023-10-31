@@ -3,6 +3,8 @@ import torch
 import torchvision
 from torchvision import transforms
 from easydict import EasyDict
+
+from .new_custom_loader import CustomDataset
 from ..ylib.dataloader.tinyimages_80mn_loader import TinyImages
 from ..ylib.dataloader.imagenet_loader import ImageNet
 from ..ylib.dataloader.svhn_loader import SVHN
@@ -192,9 +194,14 @@ def get_loader_out(args, dataset=('tim', 'noise'), config_type='default', split=
             val_ood_loader = torch.utils.data.DataLoader(
                 LowFreqRandom(image_size=imagesize, data_size=10000),
                 batch_size=batch_size, shuffle=False, num_workers=2)
+        # else:
+        #     val_ood_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder("/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/data/images/",
+        #                                                   transform=transform_test), batch_size=batch_size, shuffle=False, num_workers=2)
+
         else:
-            val_ood_loader = torch.utils.data.DataLoader(torchvision.datasets.ImageFolder("/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/data/images/",
-                                                          transform=transform_test), batch_size=batch_size, shuffle=False, num_workers=2)
+            val_ood_loader = torch.utils.data.DataLoader(
+                CustomDataset(dataset_name=val_dataset, transform=config.transform_test),
+                batch_size=config.batch_size, shuffle=False)
 
     return EasyDict({
         "train_ood_loader": train_ood_loader,

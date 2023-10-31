@@ -168,7 +168,15 @@ def run():
                 f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
 
 
+        if option == 'Fine-Tune':
+            st.write('Fine-Tune mode ON')
 
+            print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(
+                selected_dataset))
+            ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
+            n_ood = 50  # take 50 ood samples
+            exp.train_global(selected_dataset, True, ood_class, n_ood)
+            st.success('Fine-Tune successfully done')
 
 
 
