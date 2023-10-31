@@ -12,15 +12,15 @@ from model_jingwei.main import new_code
 
 st.set_page_config(page_title="Continuous Learning App")
 
-val = stx.stepper_bar(steps=["Upload", "Run"])
+val = stx.stepper_bar(steps=["Upload", "Run", 'Review'])
 
 if val == 0:
     upload()
 elif val == 1:
     # new_code()
     run()
-# elif val == 2:
-#     review()
+elif val == 2:
+    review()
 # elif val == 3:
 #     review()
 #

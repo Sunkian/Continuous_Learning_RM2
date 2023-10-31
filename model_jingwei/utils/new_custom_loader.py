@@ -33,7 +33,7 @@ class CustomDataset(data.Dataset):
         if self.target_transform:
             target = self.target_transform(target)
 
-        return img, target, self.image_paths[idx]
+        return img, target
 
     def __len__(self):
         return len(self.image_paths)

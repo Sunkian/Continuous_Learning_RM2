@@ -12,7 +12,7 @@ import os
 BASE_API_URL = "http://127.0.0.1:8000"  # Replace with your FastAPI server address
 
 
-def fetch_datasets():
+def fetch_datasets(filter_prefix=None):
     """
     Fetches list of datasets from the FastAPI service.
 
@@ -27,6 +27,11 @@ def fetch_datasets():
 
     # Extract and return the list of datasets
     datasets = response.json().get("datasets", [])
+
+    # Filter the datasets based on the prefix if provided
+    if filter_prefix:
+        datasets = [dataset for dataset in datasets if dataset.startswith(filter_prefix)]
+
     return datasets
 
 
@@ -97,9 +102,10 @@ def run():
                            'OOD detection (Inference)',
                            'Fine-Tune'))
 
-
-
-    datasets = fetch_datasets()
+    if option == 'Fine-Tune':
+        datasets = fetch_datasets(filter_prefix="FT")
+    else:
+        datasets = fetch_datasets()
     # st.write(datasets)
 
     # Let user select a dataset using Streamlit
@@ -138,7 +144,7 @@ def run():
         # =================================================================
 
         if option == 'OOD detection (Inference)':
-            st.write('Hello')
+            # st.write('Hello')
             unknown_idx, scores_conf, bool_ood = exp.ood_detection(selected_dataset, K=50)
 
             # update_data = []
@@ -169,6 +175,7 @@ def run():
 
 
         if option == 'Fine-Tune':
+
             st.write('Fine-Tune mode ON')
 
             print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(

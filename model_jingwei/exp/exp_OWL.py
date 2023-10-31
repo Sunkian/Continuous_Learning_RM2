@@ -187,26 +187,26 @@ class Exp_OWL(Exp_OWLbasic):
 
             model.eval()
             processed_samples = 0  # Add this before the for loop
+            response = requests.get(f"http://127.0.0.1:8000/list_files/{ood_name}/")
+            filenames_list = response.json().get("files", [])
 
-            for batch_idx, (inputs, targets, filenames) in enumerate(dataloader):
+            for batch_idx, (inputs, targets) in enumerate(dataloader):
+                current_filenames = filenames_list[processed_samples: processed_samples + len(inputs)]
+                print('CURRENT_FILENAMES:', current_filenames)
+
                 inputs = inputs.to(self.device)
                 actual_batch_size = inputs.shape[0]
 
                 start_ind = processed_samples
                 end_ind = start_ind + actual_batch_size
 
-                # print('INPUUTS:', targets)
-
-                print(
-                    f"start_ind: {start_ind}, end_ind: {end_ind}, actual_batch_size: {actual_batch_size}")  # Debugging line
-
                 out = model(inputs)
                 ood_feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
                 ood_label[start_ind:end_ind] = targets.detach().cpu().numpy()
 
-                for idx, filename in enumerate(filenames):
+                for idx, filename in enumerate(current_filenames):
                     update_data = {
-                        'file_name': filename,  # use the actual filename from the dataset
+                        'file_name': filename,
                         'ood_feat_log': ood_feat_log[start_ind + idx].tolist(),
                         'ood_label': int(ood_label[start_ind + idx])
                     }
@@ -329,8 +329,8 @@ class Exp_OWL(Exp_OWLbasic):
         :return pred_labels: the class predictions
 
         """
-        id_name = self.args.in_dataset
-        # id_name = self.args.in_dataset + "_ft" #### For fine-tuning !!
+        # id_name = self.args.in_dataset
+        id_name = self.args.in_dataset + "_ft" #### For fine-tuning !!
 
 # Lire les features directement à partir de la base de données updatée
         caches_id = self.read_id(id_name)
@@ -440,6 +440,8 @@ class Exp_OWL(Exp_OWLbasic):
 
             samples[label] = sampled_indexes
 
+        print('SAMPLES_IND', sampled_indexes)
+
         return samples
 
     def build_ft_dataloader(self, ood_name, batch_size, shuffle, ood_class=[0], n_ood=200):
@@ -469,14 +471,18 @@ class Exp_OWL(Exp_OWLbasic):
         # read ood data
         loader_out = get_loader_out(self.args, dataset=(None, ood_name), split=('val'))
         self.val_loader_out = loader_out.val_ood_loader  # take the val/test batch of the ood data
-        x_ood = np.array(torch.stack([x for x, _ in self.val_loader_out.dataset]))  # (N, H, W, C)
-        y_ood = np.array([y for _, y in self.val_loader_out.dataset])  # (N)
+
+        # print('TESTTTTT',self.val_loader_out.dataset[0])
+        x_ood = np.array(torch.stack([x for x, _, _ in self.val_loader_out.dataset]))  # (N, H, W, C)
+        y_ood = np.array([y for _, y, _ in self.val_loader_out.dataset])  # (N)
 
         # sampling ood/new coming data with one/multiple classes
         # samples_ood/id_idx : {class: indices}, the representatfive instances are randomly sampled
         # TODO caching mechanism: cache the most representative samples for fine-tuning
         #       e.g., representatiove sample selection with kNNs of the cluster centroids
         samples_ood_idx = self.sample_instances(y_ood, num_samples=n_ood)
+
+        print('Samples_OOD indexes', samples_ood_idx)
 
         # select samples from target ood classes
         target_samples_ood_idx = {k: samples_ood_idx[k] for k in ood_class if k in samples_ood_idx}
@@ -487,6 +493,7 @@ class Exp_OWL(Exp_OWLbasic):
         ratio_old_new = 1
         n_old_per_class = ratio_old_new * n_ood
         samples_id_idx = self.sample_instances(y_train_id, num_samples=n_old_per_class)
+        print('Samples_ID indexes', samples_id_idx)
         id_idx = [index for indices in samples_id_idx.values() for index in indices]
         x_repr_id, y_repr_id = x_train_id[id_idx], y_train_id[id_idx]
 

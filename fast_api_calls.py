@@ -285,14 +285,19 @@ async def update_database(names: List[str], bool_ood: List[bool], scores_conf: L
 
 @app.get("/list_datasets/")
 async def list_datasets():
-    base_path = Path(UPLOAD_DIR)
+    # base_path = Path(UPLOAD_DIR)
+    #
+    # # Ensure the base directory exists
+    # if not base_path.exists():
+    #     raise HTTPException(status_code=404, detail="Upload directory not found!")
+    #
+    # # List all subdirectories inside the main directory
+    # datasets = [subdir.name for subdir in base_path.iterdir() if subdir.is_dir()]
 
-    # Ensure the base directory exists
-    if not base_path.exists():
-        raise HTTPException(status_code=404, detail="Upload directory not found!")
+    datasets = collection.distinct("dataset")
 
-    # List all subdirectories inside the main directory
-    datasets = [subdir.name for subdir in base_path.iterdir() if subdir.is_dir()]
+    if not datasets:
+        raise HTTPException(status_code=404, detail="No datasets found!")
 
     return {"datasets": datasets}
 
@@ -324,13 +329,13 @@ async def get_image(image_name: str):
 
 @app.get("/list_files/{dataset_name}/")
 async def list_files(dataset_name: str = FastAPIPath(...)):
-    dataset_path = Path(UPLOAD_DIR) / dataset_name
+    documents = collection.find({"dataset": dataset_name})
 
-    if not dataset_path.exists():
-        raise HTTPException(status_code=404, detail="Dataset not found!")
+    if not documents:
+        raise HTTPException(status_code=404, detail="No files found for the specified dataset!")
 
-    # List all files inside the selected dataset
-    files = [f.name for f in dataset_path.iterdir() if f.is_file()]
+    # Extract file names from the documents
+    files = [doc["file_name"] for doc in documents]
 
     return {"files": files}
 
@@ -357,7 +362,7 @@ async def update_results(data: List[UpdateData]):
 
 @app.get("/get_ood_images/")
 async def get_ood_images():
-    ood_images = list(collection.find({"bool_ood": True}, {"_id": 0, "file_path": 1, "file_name": 1}))
+    ood_images = list(collection.find({"bool_ood": True}, {"_id": 0, "file_path": 1, "file_name": 1, "dataset": 1}))
     return ood_images
 
 
@@ -366,13 +371,14 @@ async def get_ood_images():
 class UpdateGroundTruth(BaseModel):
     file_names: List[str]
     class_ground_truth: str
+    dataset : str
 
 @app.post("/update_ground_truth/")
 async def update_ground_truth(data: UpdateGroundTruth):
     for file_name in data.file_names:
         collection.update_one(
             {"file_name": file_name},
-            {"$set": {"class_ground_truth": data.class_ground_truth}}
+            {"$set": {"class_ground_truth": data.class_ground_truth, "dataset" : data.dataset}}
         )
     return {"status": "Ground truth updated successfully"}
 

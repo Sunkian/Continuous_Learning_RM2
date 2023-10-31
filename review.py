@@ -43,6 +43,7 @@ def review():
         for j in range(4):
             if i + j < len(ood_images):
                 img_info = ood_images[i + j]
+                print(img_info)
                 img_path = img_info["file_path"]
                 if os.path.exists(img_path):
                     image = Image.open(img_path)
@@ -54,17 +55,20 @@ def review():
                     if is_selected:
                         selected_images.append(img_info["file_name"])
 
-                    cols[j].image(image, caption=img_info["file_name"], use_column_width=True)
+                    dataset_name = img_info.get("dataset",
+                                                "Unknown dataset")  # Use a default value if dataset is missing
+                    cols[j].image(image, caption=f"{img_info['file_name']} ({dataset_name})", use_column_width=True)
                 else:
                     cols[j].write(f"Image not found: {img_info['file_name']}")
-
     class_ground_truth = st.text_input("Enter new batch name:")
+
 
     # If the 'Update' button is pressed and there are selected images, update their class_ground_truth
     if st.button("Update Ground Truth") and selected_images:
         payload = {
             "file_names": selected_images,
-            "class_ground_truth": class_ground_truth
+            "class_ground_truth": class_ground_truth,
+            "dataset": "FT_" + img_info["dataset"]
         }
         response = requests.post(f"{BASE_API_URL}/update_ground_truth/", json=payload)
         if response.status_code == 200:
