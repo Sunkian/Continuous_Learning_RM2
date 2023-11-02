@@ -81,12 +81,6 @@ class Exp_OWL(Exp_OWLbasic):
 
         begin = time.time()
 
-        # load pre-trained classifier, which should be trained using the embedding features
-        # ckpt = torch.load(self.init_classifier_path)
-        # ckpt = {'state_dict': {key.replace("module.", ""): value for key, value in ckpt['state_dict'].items()}}
-        # self.classifier_init.load_state_dict(ckpt['state_dict'])
-        # self.classifier_init.eval()
-
         all_metadata = []
 
         # 'val'/'test' loader: to get the threshold distance in ID data and check if a sample is OOD
@@ -124,11 +118,11 @@ class Exp_OWL(Exp_OWLbasic):
                             'repr_flag': None  # Or whatever logic you use to set this
                         }
 
-                        # print('HELLO')
-                        # print(metadata)
 
                         # Send a POST request to the FastAPI route
-                        response = requests.post("http://127.0.0.1:8000/push_feature_data/", json=metadata)
+                        # response = requests.post("http://127.0.0.1:8000/push_feature_data/", json=metadata)
+                        response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=metadata)
+
                         # if response.status_code == 200:
                         #     print(f"Pushed data for data_{idx} successfully!")
                         # else:
@@ -267,12 +261,16 @@ class Exp_OWL(Exp_OWLbasic):
 
             feat_logs_list = []
             labels_list = []
+            names = []
             for item in data['data']:
                 feat_logs_list.append(item['feat_log'])
                 labels_list.append(item['label'])
+                names.append(item['data_name'])
 
             caches["id_feat_" + split] = prepos_feat(np.array(feat_logs_list))
             caches["id_label_" + split] = np.array(labels_list)
+            caches["names"] = names
+            # caches["names_" + split] = names
 
         return caches
 
@@ -417,7 +415,7 @@ class Exp_OWL(Exp_OWLbasic):
         # return unknown_idx, bool_ood, scores_conf, pred_scores, pred_labels
         return unknown_idx, bool_ood, scores_conf
 
-    def sample_instances(self, y, num_samples=100):
+    def sample_instances(self, y, num_samples=5):
         """
         For each unique label in y, sample 'num_samples' instances and return their indices.
 
@@ -475,8 +473,8 @@ class Exp_OWL(Exp_OWLbasic):
         self.val_loader_out = loader_out.val_ood_loader  # take the val/test batch of the ood data
 
         # print('TESTTTTT',self.val_loader_out.dataset[0])
-        x_ood = np.array(torch.stack([x for x, _, _ in self.val_loader_out.dataset]))  # (N, H, W, C)
-        y_ood = np.array([y for _, y, _ in self.val_loader_out.dataset])  # (N)
+        x_ood = np.array(torch.stack([x for x, _ in self.val_loader_out.dataset]))  # (N, H, W, C)
+        y_ood = np.array([y for _, y in self.val_loader_out.dataset])  # (N)
 
         # sampling ood/new coming data with one/multiple classes
         # samples_ood/id_idx : {class: indices}, the representatfive instances are randomly sampled
@@ -678,14 +676,29 @@ class Exp_OWL(Exp_OWLbasic):
 
         return accuracy_score(ground_truths, preds)
 
+
     def train_global(self, ood_name, shuffle, ood_class, n_ood):
         base_model_name = self.args.name.split('_')[0]
 
         n_new_class = len(ood_class)
         batch_size = self.args.batch_size
         # Initiate dataloaders for (embeddings, targets)
+
         caches_id = self.read_id(id_name=self.args.in_dataset)
+        print('CAAAAAACHE IIIIID', caches_id.keys())
+        print('CAAAAAACHE IIIIID', caches_id)
+        # filename_id_train = caches_id.get("data_name", "Default_ID_Filename")
+        # names of the files : caches_id['names']
+
         caches_ood = self.read_ood(ood_name)
+        print('CAAAAAACHE OOOOOD', caches_ood.keys())
+        print('CAAAAAACHE OOOOOD', caches_ood)
+        # filename_ood = caches_ood.get("data_name", "Default_OOD_Filename")
+        # names of the files : caches_ood['names']
+
+        # Now, you have the filenames stored in filename_id_train and filename_ood
+        # print(f"ID training filename: {filename_id_train}")
+        # print(f"OOD filename: {filename_ood}")
         feat_id_train, y_id_train = caches_id["id_feat_train"], caches_id["id_label_train"]
         feat_id_val, y_id_val = caches_id["id_feat_val"], caches_id["id_label_val"]
         feat_ood, y_ood = caches_ood['ood_feat'], caches_ood['ood_label']
@@ -725,13 +738,71 @@ class Exp_OWL(Exp_OWLbasic):
         torch.save({"state_dict": self.model.state_dict()}, self.ft_model_path)
 
         classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
-# ICI, update la bdd
+# HERE, update la bdd
         # re-extract features for ID and OOD data using fine-tuned model
         self.id_feature_extract(self.model, self.args.in_dataset + "_ft")
         caches_id_ft = self.read_id(self.args.in_dataset + "_ft")
         feat_id_train, y_id_train = caches_id_ft["id_feat_train"], caches_id_ft["id_label_train"]
         feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
         feat_ood, y_ood = self.ns_feature_extract(self.model, ft_dataloader, ood_name + "_ft")
+
+        # assert len(caches_id_ft['names']) == len(feat_id_train) == len(y_id_train)
+        # assert len(caches_id_ft['names']) == len(feat_id_val) == len(y_id_val)
+
+        response = requests.get(f"http://127.0.0.1:8000/list_files/{ood_name}/")
+        if response.status_code == 200:
+            file_data = response.json()
+            filenames = file_data.get("files", [])
+        else:
+            print("Failed to retrieve filenames!")
+            filenames = []  # Empty list as a fallback
+
+        print('NEW CACHES ID FT', caches_id_ft)
+        print('NEW CACHES ID FT', caches_id_ft.keys())
+        #Filenames for id : caches_id_ft['names']
+        print('Filenames for OOD:', filenames)
+
+
+        # for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_train, y_id_train):
+        #     print(f"Sending {fname} with features {f_ood[:5]} and label {y}")
+        #     response = requests.post("http://127.0.0.1:8000/update_train_data/", json={
+        #         "data_name": fname,
+        #         "feat_log": f_ood.tolist(),
+        #         "id_label_train": int(y)
+        #     })
+        #
+        #     if response.status_code != 200:
+        #         print(f"Error updating ID Train data for {fname}:", response.content)
+        #     else:
+        #         print('YES ID TRAIN')
+
+        for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_val, y_id_val):
+            print(f"Sending VAL data {fname} with features {f_ood[:5]} and label {y}")
+
+            response = requests.post("http://127.0.0.1:8000/update_test_data/", json={
+                "data_name": fname,
+                "feat_log": f_ood.tolist(),
+                "label": int(y)
+            })
+
+            if response.status_code != 200:
+                print(f"Error updating ID Val data for {fname}:", response.content)
+            else:
+                print('YES ID VAL ')
+
+
+        #
+        # for fname, f_ood, y in zip(filenames, feat_ood, y_ood):
+        #     response = requests.post("http://127.0.0.1:8000/update_data_collection/", json={
+        #         "file_name": fname,
+        #         "ood_feat_log": f_ood.tolist(),
+        #         "ood_label": int(y)
+        #     })
+        #
+        #     if response.status_code != 200:
+        #         print(f"Error updating OOD data for {fname}:", response.content)
+        #     else:
+        #         print('YES OOD')
 
         dataset_train = TensorDataset(torch.tensor(feat_id_train), torch.tensor(y_id_train))
         dataset_val = TensorDataset(torch.tensor(feat_id_val), torch.tensor(y_id_val))
@@ -741,7 +812,14 @@ class Exp_OWL(Exp_OWLbasic):
         self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, classifier_ft,
                                                             set_optimizer(self.args, self.classifier_init),
                                                             epochs=self.args.epochs_clf)
+        # Change the line above to :
+        # self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, classifier_ft,
+        #                                                     set_optimizer(self.args, self.classifier_ft),
+        #                                                     epochs=self.args.epochs_clf)
         torch.save({"state_dict": self.classifier_ft.state_dict()}, self.ft_classifier_path)
+
+
+
 
         # evaluation of the fine-tuned model 
         print("Evaluation of the fine-tuned model \n")

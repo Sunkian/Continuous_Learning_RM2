@@ -118,7 +118,8 @@ def run():
     if st.button('Run'):
         args = get_args()
         exp = Exp_OWL(args)
-        if option == 'In-Distribution feature extraction':
+        if option == 'ID feature extraction':
+            st.write('HELLO')
             exp.id_feature_extract(exp.model, args.in_dataset)
             st.success('ID features extracted successfully !')
             # response = requests.post(f"{BASE_API_URL}/store_metadata/")
@@ -181,7 +182,7 @@ def run():
             print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(
                 selected_dataset))
             ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
-            n_ood = 50  # take 50 ood samples
+            n_ood = 5  # take 50 ood samples
             exp.train_global(selected_dataset, True, ood_class, n_ood)
             st.success('Fine-Tune successfully done')
 

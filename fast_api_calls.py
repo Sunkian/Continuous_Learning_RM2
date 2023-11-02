@@ -178,6 +178,7 @@ async def push_feature_data(data: FeatureData):
 
     # Insert the data into the appropriate MongoDB collection
     collection.insert_one(data.dict())
+    # collection.update_one(query, update, upsert=True)
 
     return {"message": f"Data for {data.data_name} inserted successfully into {data.dataset_split} collection!"}
 
@@ -495,3 +496,139 @@ async def get_ood_data():
         return {"data": data}
     except PyMongoError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =======@
+
+# class UpdateTrainTestData(BaseModel):
+#     dataset_split: str  # can be "train", "test", or "data"
+#     file_name: str  # to identify which document to update
+#     feat_log: List[float]
+#     label: int
+#
+# @app.post("/update_train_test_data/")
+# async def update_train_test_data(data: UpdateTrainTestData):
+#     # Determine the correct collection based on the dataset_split
+#     if data.dataset_split == "train":
+#         coll = train_collection
+#     elif data.dataset_split == "test":
+#         coll = test_collection
+#     elif data.dataset_split == "data":
+#         coll = collection
+#     else:
+#         raise HTTPException(status_code=400, detail=f"Unknown dataset split: {data.dataset_split}")
+#
+#     # Define the query and the update
+#     query = {"file_name": data.file_name}
+#     update = {
+#         "$set": {
+#             "feat_log": data.feat_log,
+#             "label": data.label
+#         }
+#     }
+#
+#     result = coll.update_one(query, update)
+#
+#     if result.modified_count == 1:
+#         return {"status": "success", "message": f"Document with file_name {data.file_name} updated in {data.dataset_split} collection."}
+#     else:
+#         raise HTTPException(status_code=400, detail=f"Could not update document with file_name {data.file_name} in {data.dataset_split} collection.")
+
+class TrainUpdate(BaseModel):
+    data_name: str
+    feat_log: List[float]
+    label: int
+
+class TestUpdate(BaseModel):
+    data_name: str
+    feat_log: List[float]
+    label: int
+
+class DataUpdate(BaseModel):
+    file_name: str
+    ood_feat_log: List[float]
+    ood_label: int
+
+
+@app.post("/update_train_data/")
+async def update_train_data(data: TrainUpdate):
+    query = {"data_name": data.data_name}
+    update = {
+        "$set": {
+            "feat_log": data.feat_log,
+            "label": data.label
+        }
+    }
+    result = train_collection.update_one(query, update)
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Data not updated, maybe item not found!")
+    return {"message": f"Data for {data.data_name} updated successfully in train collection!"}
+
+# For test collection
+
+
+@app.post("/update_test_data/")
+async def update_test_data(data: TestUpdate):
+    query = {"data_name": data.data_name}
+    update = {
+        "$set": {
+            "feat_log": data.feat_log,
+            "label": data.label
+        }
+    }
+    result = test_collection.update_one(query, update, upsert=True)
+    if result.matched_count == 0:
+        raise HTTPException(status_code=400, detail=f"Data with name {data.data_name} not found!")
+    elif result.modified_count == 0:
+        raise HTTPException(status_code=400, detail=f"Data for {data.data_name} not updated. Maybe it's the same data?")
+    return {"message": f"Data for {data.data_name} updated successfully in test collection!"}
+# For data collection
+
+@app.post("/update_data_collection/")
+async def update_data_collection(data: DataUpdate):
+    query = {"file_name": data.file_name}
+    update = {
+        "$set": {
+            "ood_feat_log": data.ood_feat_log,
+            "ood_label": data.ood_label
+        }
+    }
+    result = collection.update_one(query, update)
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Data not updated, maybe item not found!")
+    return {"message": f"Data for {data.file_name} updated successfully in data collection!"}
+
+
+
+
+
+
+
+
+
+@app.post("/update_feature_data/")
+async def update_feature_data(data: FeatureData):
+    # Determine the correct collection based on the dataset_split
+    if data.dataset_split == "train":
+        collection = train_collection
+    elif data.dataset_split == "val":  # Assuming 'val' means 'test' in your context
+        collection = test_collection
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown dataset split: {data.dataset_split}")
+
+    # Construct a filter for the document to update
+    filter_query = {"data_name": data.data_name, "dataset_split": data.dataset_split}
+    # Construct the new data to update
+    new_values = {"$set": data.dict()}
+    # Update the document if it exists, insert as new if it doesn't
+    result = collection.update_one(filter_query, new_values, upsert=True)
+
+    # Check if the document was upserted or modified
+    if result.modified_count > 0:
+        message = f"Data for {data.data_name} updated successfully in {data.dataset_split} collection!"
+    elif result.upserted_id is not None:
+        message = f"Data for {data.data_name} inserted as new in {data.dataset_split} collection!"
+    else:
+        message = "No changes were made to the database."
+
+    return {"message": message}
