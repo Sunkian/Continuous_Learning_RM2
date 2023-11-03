@@ -88,8 +88,8 @@ class Exp_OWL(Exp_OWLbasic):
             # why testing data in in-distribution data?
 
             #  A ENLEVER, CHARGER DEPUIS LA BDD
-            cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
-            if not os.path.exists(cache_name):
+            # cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
+            # if not os.path.exists(cache_name):
                 # feat_log: the last layer features of ResNet
                 # label: the ground truth labels
                 feat_log = np.zeros((len(in_loader.dataset), featdims))
@@ -130,21 +130,21 @@ class Exp_OWL(Exp_OWLbasic):
                         all_metadata.append(metadata)
 
 
-                    if batch_idx % 100 == 0:
-                        print(f"id batches: {batch_idx}/{len(in_loader)}")
-                print("feature shape, feat_log: {}, label: {}".format(feat_log.shape, label.shape))
+                #     if batch_idx % 100 == 0:
+                #         print(f"id batches: {batch_idx}/{len(in_loader)}")
+                # print("feature shape, feat_log: {}, label: {}".format(feat_log.shape, label.shape))
 
                 # with open(f'/metadata_id_{split}.json', 'w') as json_file:  # The filename is now dynamic based on split
                 #     json.dump(all_metadata, json_file)
-                np.savez(cache_name, feat_log=feat_log, label=label)
+                # np.savez(cache_name, feat_log=feat_log, label=label)
                 # np.savez(cache_name, feat_log = feat_log, score_log = score_log, label = label)
-            else:
-                print(f"Features for {id_name} already extracted and cached in {cache_name}")
-                # data = np.load(cache_name, allow_pickle=True)
-                # feat_log = data['feat_log']
-                # score_log = data['score_log']
-                # label = data['label']
-                continue
+            # else:
+            #     print(f"Features for {id_name} already extracted and cached in {cache_name}")
+            #     # data = np.load(cache_name, allow_pickle=True)
+            #     # feat_log = data['feat_log']
+            #     # score_log = data['score_log']
+            #     # label = data['label']
+            #     continue
 
         print(f"Time for Feature extraction over ID training/validation set: {time.time() - begin}")
 
@@ -740,7 +740,9 @@ class Exp_OWL(Exp_OWLbasic):
         classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
 # HERE, update la bdd
         # re-extract features for ID and OOD data using fine-tuned model
+        print('Re-extracting features for ID data ...')
         self.id_feature_extract(self.model, self.args.in_dataset + "_ft")
+        # print('Re-extracting features for ID data ...')
         caches_id_ft = self.read_id(self.args.in_dataset + "_ft")
         feat_id_train, y_id_train = caches_id_ft["id_feat_train"], caches_id_ft["id_label_train"]
         feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
@@ -763,18 +765,18 @@ class Exp_OWL(Exp_OWLbasic):
         print('Filenames for OOD:', filenames)
 
 
-        # for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_train, y_id_train):
-        #     print(f"Sending {fname} with features {f_ood[:5]} and label {y}")
-        #     response = requests.post("http://127.0.0.1:8000/update_train_data/", json={
-        #         "data_name": fname,
-        #         "feat_log": f_ood.tolist(),
-        #         "id_label_train": int(y)
-        #     })
-        #
-        #     if response.status_code != 200:
-        #         print(f"Error updating ID Train data for {fname}:", response.content)
-        #     else:
-        #         print('YES ID TRAIN')
+        for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_train, y_id_train):
+            print(f"Sending {fname} with features {f_ood[:5]} and label {y}")
+            response = requests.post("http://127.0.0.1:8000/update_train_data/", json={
+                "data_name": fname,
+                "feat_log": f_ood.tolist(),
+                "label": int(y)
+            })
+
+            if response.status_code != 200:
+                print(f"Error updating ID Train data for {fname}:", response.content)
+            else:
+                print('YES ID TRAIN')
 
         for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_val, y_id_val):
             print(f"Sending VAL data {fname} with features {f_ood[:5]} and label {y}")
@@ -791,18 +793,18 @@ class Exp_OWL(Exp_OWLbasic):
                 print('YES ID VAL ')
 
 
-        #
-        # for fname, f_ood, y in zip(filenames, feat_ood, y_ood):
-        #     response = requests.post("http://127.0.0.1:8000/update_data_collection/", json={
-        #         "file_name": fname,
-        #         "ood_feat_log": f_ood.tolist(),
-        #         "ood_label": int(y)
-        #     })
-        #
-        #     if response.status_code != 200:
-        #         print(f"Error updating OOD data for {fname}:", response.content)
-        #     else:
-        #         print('YES OOD')
+
+        for fname, f_ood, y in zip(filenames, feat_ood, y_ood):
+            response = requests.post("http://127.0.0.1:8000/update_data_collection/", json={
+                "file_name": fname,
+                "ood_feat_log": f_ood.tolist(),
+                "ood_label": int(y)
+            })
+
+            if response.status_code != 200:
+                print(f"Error updating OOD data for {fname}:", response.content)
+            else:
+                print('YES OOD')
 
         dataset_train = TensorDataset(torch.tensor(feat_id_train), torch.tensor(y_id_train))
         dataset_val = TensorDataset(torch.tensor(feat_id_val), torch.tensor(y_id_val))
