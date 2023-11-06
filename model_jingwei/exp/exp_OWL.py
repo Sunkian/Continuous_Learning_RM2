@@ -136,29 +136,7 @@ class Exp_OWL(Exp_OWLbasic):
                             print(f"Error updating ID Train data for f'data_{idx}:", response.content)
                         else:
                             print(f'Pushing {split} to database')
-
-                        # if response.status_code == 200:
-                        #     print(f"Pushed data for data_{idx} successfully!")
-                        # else:
-                        #     print(f"Failed to push data for data_{idx}!")
                         all_metadata.append(metadata)
-
-
-                #     if batch_idx % 100 == 0:
-                #         print(f"id batches: {batch_idx}/{len(in_loader)}")
-                # print("feature shape, feat_log: {}, label: {}".format(feat_log.shape, label.shape))
-
-                # with open(f'/metadata_id_{split}.json', 'w') as json_file:  # The filename is now dynamic based on split
-                #     json.dump(all_metadata, json_file)
-                # np.savez(cache_name, feat_log=feat_log, label=label)
-                # np.savez(cache_name, feat_log = feat_log, score_log = score_log, label = label)
-            # else:
-            #     print(f"Features for {id_name} already extracted and cached in {cache_name}")
-            #     # data = np.load(cache_name, allow_pickle=True)
-            #     # feat_log = data['feat_log']
-            #     # score_log = data['score_log']
-            #     # label = data['label']
-            #     continue
 
         print(f"Time for Feature extraction over ID training/validation set: {time.time() - begin}")
 
@@ -411,7 +389,6 @@ class Exp_OWL(Exp_OWLbasic):
             # save indices of detected ood samples
             unknown_idx = []
             for idx, score in enumerate(scores_ns):
-                # print(f"new sample {idx} ood detection result is {bool(score > threshold)}")
                 if score < threshold:
                     unknown_idx.append(idx)
                 else:
@@ -424,11 +401,6 @@ class Exp_OWL(Exp_OWLbasic):
             results = metrics.cal_metric(scores_known, scores_ns)
             all_results.append(results)
             metrics.print_all_results(all_results, self.args.out_datasets, f'KNN k={k}')
-
-            # scores_conf: the confidence scores for ood sample recognition, 1: ood sample, 0: non ood sample
-            # score_ns >= threshold: score_conf <= 0.5;
-            # score_ns < threshold: score_conf > 0.5;
-            # condition: score_ns < 0
             # TODO: to check the max value of score_conf when score_ns = 0
             scores_conf = 1 / (1 + np.exp(-(scores_ns - threshold)))
 
@@ -444,14 +416,6 @@ class Exp_OWL(Exp_OWLbasic):
                     print(f"Updated data for {filename} successfully!!!!")
                 else:
                     print(f"Failed to update data for {filename}!")
-
-
-            # load the class prediction scores by the base model
-        # caches_ood["ood_score"] = caches_ood['ood_score']  # shape: (N, C)
-        # pred_scores = np.max(caches_ood["ood_score"], axis=1)  # (N)
-        # pred_labels = np.argmax(caches_ood["ood_score"], axis=1)  # (N)
-
-        # return unknown_idx, bool_ood, scores_conf, pred_scores, pred_labels
         return unknown_idx, bool_ood, scores_conf
 
     def sample_instances(self, y, num_samples=5):
@@ -777,7 +741,7 @@ class Exp_OWL(Exp_OWLbasic):
         torch.save({"state_dict": self.model.state_dict()}, self.ft_model_path)
 
         classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
-# HERE, update la bdd
+
         # re-extract features for ID and OOD data using fine-tuned model
         print('Re-extracting features for ID data ...')
         self.id_feature_extract(self.model, self.args.in_dataset + "_ft")
@@ -787,8 +751,6 @@ class Exp_OWL(Exp_OWLbasic):
         feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
         feat_ood, y_ood = self.ns_feature_extract(self.model, ft_dataloader, ood_name + "_ft")
 
-        # assert len(caches_id_ft['names']) == len(feat_id_train) == len(y_id_train)
-        # assert len(caches_id_ft['names']) == len(feat_id_val) == len(y_id_val)
 
         response = requests.get(f"http://127.0.0.1:8000/list_files/{ood_name}/")
         if response.status_code == 200:
@@ -797,39 +759,6 @@ class Exp_OWL(Exp_OWLbasic):
         else:
             print("Failed to retrieve filenames!")
             filenames = []  # Empty list as a fallback
-
-        print('NEW CACHES ID FT', caches_id_ft)
-        print('NEW CACHES ID FT', caches_id_ft.keys())
-        #Filenames for id : caches_id_ft['names']
-        print('Filenames for OOD:', filenames)
-
-
-        # for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_train, y_id_train):
-        #     print(f"Sending {fname} with features {f_ood[:5]} and label {y}")
-        #     response = requests.post("http://127.0.0.1:8000/update_train_data/", json={
-        #         "data_name": fname,
-        #         "feat_log": f_ood.tolist(),
-        #         "label": int(y)
-        #     })
-        #
-        #     if response.status_code != 200:
-        #         print(f"Error updating ID Train data for {fname}:", response.content)
-        #     else:
-        #         print('YES ID TRAIN')
-        #
-        # for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_val, y_id_val):
-        #     print(f"Sending VAL data {fname} with features {f_ood[:5]} and label {y}")
-        #
-        #     response = requests.post("http://127.0.0.1:8000/update_test_data/", json={
-        #         "data_name": fname,
-        #         "feat_log": f_ood.tolist(),
-        #         "label": int(y)
-        #     })
-        #
-        #     if response.status_code != 200:
-        #         print(f"Error updating ID Val data for {fname}:", response.content)
-        #     else:
-        #         print('YES ID VAL ')
 
 
 
@@ -843,7 +772,7 @@ class Exp_OWL(Exp_OWLbasic):
             if response.status_code != 200:
                 print(f"Error updating OOD data for {fname}:", response.content)
             else:
-                print('YES OOD')
+                print('Pushing OOD to the database')
 
         dataset_train = TensorDataset(torch.tensor(feat_id_train), torch.tensor(y_id_train))
         dataset_val = TensorDataset(torch.tensor(feat_id_val), torch.tensor(y_id_val))
