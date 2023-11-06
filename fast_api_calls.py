@@ -658,3 +658,22 @@ async def ood_count(dataset: Optional[str] = Query(None, title="Dataset Name")):
     # Count the OOD samples for the given dataset
     ood_count = collection.count_documents({"dataset": dataset, "bool_ood": True})
     return {"ood_count": ood_count}
+
+
+# Visualization, get the embeddings to display
+@app.get("/get_id_data/")
+async def get_id_data():
+    id_data_cursor = train_collection.find()
+    id_data = list(id_data_cursor)
+    # Assuming the features and labels are stored with keys 'feat_log' and 'label'
+    id_feat = [data['feat_log'] for data in id_data]
+    id_label = [data['label'] for data in id_data]
+    return {"id_feat": id_feat, "id_label": id_label}
+
+@app.get("/get_ood_data/{dataset_name}")
+async def get_ood_data(dataset_name: str):
+    ood_data_cursor = collection.find({"dataset": dataset_name})  # Change to the correct key
+    ood_data = list(ood_data_cursor)
+    ood_feat = [data['ood_feat_log'] for data in ood_data if 'ood_feat_log' in data]  # Ensure the key exists
+    ood_score = [data['ood_label'] for data in ood_data if 'ood_label' in data]  # Ensure the key exists
+    return {"ood_feat": ood_feat, "ood_score": ood_score}

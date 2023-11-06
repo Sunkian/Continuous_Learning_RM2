@@ -12,7 +12,7 @@ from model_jingwei.main import new_code
 
 st.set_page_config(page_title="Continuous Learning App")
 
-val = stx.stepper_bar(steps=["Upload", "Run", 'Review'])
+val = stx.stepper_bar(steps=["Upload", "Run", 'Visualisation','Review'])
 
 if val == 0:
     upload()
@@ -20,18 +20,7 @@ elif val == 1:
     # new_code()
     run()
 elif val == 2:
+    visuuu()
+elif val == 3:
     review()
-# elif val == 3:
-#     review()
-#
-#
-# val = stx.stepper_bar(steps=["Upload", "Run", 'Visualization','Review'])
-#
-# if val == 0:
-#     upload()
-# elif val == 1:
-#     run()
-# elif val == 2:
-#     visuuu()
-# elif val == 3:
-#     review()
+

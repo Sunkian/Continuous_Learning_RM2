@@ -95,12 +95,7 @@ class Exp_OWL(Exp_OWLbasic):
                 self.create_cache_file(cache_name, model, in_loader, featdims, batch_size)
             else:
                 print(f"Cache file {cache_name} already exists. Skipping creation.")  # Debug print
-
-            #  A ENLEVER, CHARGER DEPUIS LA BDD
                 cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
-            # if not os.path.exists(cache_name):
-                # feat_log: the last layer features of ResNet
-                # label: the ground truth labels
                 feat_log = np.zeros((len(in_loader.dataset), featdims))
                 # score_log = np.zeros((len(in_loader.dataset), self.num_classes))
                 label = np.zeros(len(in_loader.dataset))
@@ -111,10 +106,8 @@ class Exp_OWL(Exp_OWLbasic):
                     start_ind = batch_idx * batch_size
                     end_ind = min((batch_idx + 1) * batch_size, len(in_loader.dataset))
                     out = model(inputs)
-                    # score = self.classifier_init(out)
 
                     feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
-                    # score_log[start_ind:end_ind, :] = score.detach().cpu().numpy()
                     label[start_ind:end_ind] = targets.detach().cpu().numpy()
 
 
@@ -126,10 +119,6 @@ class Exp_OWL(Exp_OWLbasic):
                             'label': int(label[idx]),
                             'repr_flag': None  # Or whatever logic you use to set this
                         }
-
-
-                        # Send a POST request to the FastAPI route
-                        # response = requests.post("http://127.0.0.1:8000/push_feature_data/", json=metadata)
                         response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=metadata)
 
                         if response.status_code != 200:
@@ -668,13 +657,8 @@ class Exp_OWL(Exp_OWLbasic):
 
         print('inference dataset info: ', np.unique(ground_truths, return_counts=True))
 
-        # ticks = ['']
+
         if metrics:
-            # plt.figure()
-            # cfm = confusion_matrix(target, predictions)
-            # htm = heatmap(cfm, cmap='twilight', annot=True, xticklabels=ticks, yticklabels=ticks)
-            # figure = htm.get_figure()
-            # figure.savefig('./results/conf_matrix.pdf', dpi=400)
             print(classification_report(ground_truths, preds, digits=5))
 
         return accuracy_score(ground_truths, preds)
@@ -688,20 +672,8 @@ class Exp_OWL(Exp_OWLbasic):
         # Initiate dataloaders for (embeddings, targets)
 
         caches_id = self.read_id(id_name=self.args.in_dataset)
-        print('CAAAAAACHE IIIIID', caches_id.keys())
-        print('CAAAAAACHE IIIIID', caches_id)
-        # filename_id_train = caches_id.get("data_name", "Default_ID_Filename")
-        # names of the files : caches_id['names']
-
         caches_ood = self.read_ood(ood_name)
-        print('CAAAAAACHE OOOOOD', caches_ood.keys())
-        print('CAAAAAACHE OOOOOD', caches_ood)
-        # filename_ood = caches_ood.get("data_name", "Default_OOD_Filename")
-        # names of the files : caches_ood['names']
 
-        # Now, you have the filenames stored in filename_id_train and filename_ood
-        # print(f"ID training filename: {filename_id_train}")
-        # print(f"OOD filename: {filename_ood}")
         feat_id_train, y_id_train = caches_id["id_feat_train"], caches_id["id_label_train"]
         feat_id_val, y_id_val = caches_id["id_feat_val"], caches_id["id_label_val"]
         feat_ood, y_ood = caches_ood['ood_feat'], caches_ood['ood_label']
@@ -725,10 +697,9 @@ class Exp_OWL(Exp_OWLbasic):
 
             # evaluation of the init model
         print("Evaluation of the init model \n")
-        print("ID data")
         dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
         accu_score_id = self.inference(self.classifier_init, dataloader_val, shuffle)
-        print("OOD data")
+
         dataloader_ood = DataLoader(dataset_ood, batch_size, shuffle)
         accu_score_ood = self.inference(self.classifier_init, dataloader_ood, shuffle)
         print("Initial model's accuracy on IN data: {}, on OOD data: {}".format(accu_score_id, accu_score_ood))
