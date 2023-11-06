@@ -76,6 +76,17 @@ def fetch_train_data():
     else:
         print(f"Error: {response.status_code}, {response.text}")
 
+def fetch_ood_count(selected_dataset):
+    """
+    Fetches the count of OOD samples for a given dataset from the FastAPI service.
+
+    Returns:
+        int: The count of OOD samples.
+    """
+    response = requests.get(f"{BASE_API_URL}/ood_count/?dataset={selected_dataset}")
+    response.raise_for_status()
+    ood_count_data = response.json()
+    return ood_count_data.get("ood_count", 0)
 
 def run():
     # st.title("Model Inference / Fine-Tuning")
@@ -173,6 +184,11 @@ def run():
             print(f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
             st.write(
                 f'Total new samples: {len(bool_ood)} \nNumber of correctly detected ood samples: {len(unknown_idx)}')
+
+            ood_count = fetch_ood_count(selected_dataset)
+
+            # Display the OOD count information
+            st.write(f'Total OOD samples for {selected_dataset}: {ood_count}')
 
 
         if option == 'Fine-Tune':

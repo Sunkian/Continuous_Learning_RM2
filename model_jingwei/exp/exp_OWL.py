@@ -86,9 +86,18 @@ class Exp_OWL(Exp_OWLbasic):
         # 'val'/'test' loader: to get the threshold distance in ID data and check if a sample is OOD
         for split, in_loader in [('train', self.trainloaderIn), ('val', self.testloaderIn), ]:
             # why testing data in in-distribution data?
+            print(f"Processing split: {split}")  # Debug print
+
+            cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
+
+            if not os.path.exists(cache_name):
+                print(f"Creating cache for: {split}")  # Debug print
+                self.create_cache_file(cache_name, model, in_loader, featdims, batch_size)
+            else:
+                print(f"Cache file {cache_name} already exists. Skipping creation.")  # Debug print
 
             #  A ENLEVER, CHARGER DEPUIS LA BDD
-            # cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
+                cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
             # if not os.path.exists(cache_name):
                 # feat_log: the last layer features of ResNet
                 # label: the ground truth labels
@@ -123,6 +132,11 @@ class Exp_OWL(Exp_OWLbasic):
                         # response = requests.post("http://127.0.0.1:8000/push_feature_data/", json=metadata)
                         response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=metadata)
 
+                        if response.status_code != 200:
+                            print(f"Error updating ID Train data for f'data_{idx}:", response.content)
+                        else:
+                            print(f'Pushing {split} to database')
+
                         # if response.status_code == 200:
                         #     print(f"Pushed data for data_{idx} successfully!")
                         # else:
@@ -149,6 +163,31 @@ class Exp_OWL(Exp_OWLbasic):
         print(f"Time for Feature extraction over ID training/validation set: {time.time() - begin}")
 
         return None
+
+    def create_cache_file(self, cache_name, model, in_loader, featdims, batch_size):
+        # Initialize arrays to hold feature logs and labels
+        feat_log = np.zeros((len(in_loader.dataset), featdims))
+        label = np.zeros(len(in_loader.dataset))
+
+        model.eval()
+        for batch_idx, (inputs, targets) in enumerate(in_loader):
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            start_ind = batch_idx * batch_size
+            end_ind = min((batch_idx + 1) * batch_size, len(in_loader.dataset))
+            out = model(inputs)
+            feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
+            label[start_ind:end_ind] = targets.detach().cpu().numpy()
+
+            # Print progress for every 100 batches
+            if batch_idx % 100 == 0:
+                print(f"id batches: {batch_idx}/{len(in_loader)}")
+
+        # Print out the shapes of the feature and label logs
+        print("feature shape, feat_log: {}, label: {}".format(feat_log.shape, label.shape))
+
+        # Save to cache file
+        np.savez_compressed(cache_name, feat_log=feat_log, label=label)
+        print(f"Cache file {cache_name} created successfully.")
 
     def ns_feature_extract(self, model, dataloader, ood_name):
 
@@ -765,32 +804,32 @@ class Exp_OWL(Exp_OWLbasic):
         print('Filenames for OOD:', filenames)
 
 
-        for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_train, y_id_train):
-            print(f"Sending {fname} with features {f_ood[:5]} and label {y}")
-            response = requests.post("http://127.0.0.1:8000/update_train_data/", json={
-                "data_name": fname,
-                "feat_log": f_ood.tolist(),
-                "label": int(y)
-            })
-
-            if response.status_code != 200:
-                print(f"Error updating ID Train data for {fname}:", response.content)
-            else:
-                print('YES ID TRAIN')
-
-        for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_val, y_id_val):
-            print(f"Sending VAL data {fname} with features {f_ood[:5]} and label {y}")
-
-            response = requests.post("http://127.0.0.1:8000/update_test_data/", json={
-                "data_name": fname,
-                "feat_log": f_ood.tolist(),
-                "label": int(y)
-            })
-
-            if response.status_code != 200:
-                print(f"Error updating ID Val data for {fname}:", response.content)
-            else:
-                print('YES ID VAL ')
+        # for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_train, y_id_train):
+        #     print(f"Sending {fname} with features {f_ood[:5]} and label {y}")
+        #     response = requests.post("http://127.0.0.1:8000/update_train_data/", json={
+        #         "data_name": fname,
+        #         "feat_log": f_ood.tolist(),
+        #         "label": int(y)
+        #     })
+        #
+        #     if response.status_code != 200:
+        #         print(f"Error updating ID Train data for {fname}:", response.content)
+        #     else:
+        #         print('YES ID TRAIN')
+        #
+        # for fname, f_ood, y in zip(caches_id_ft['names'], feat_id_val, y_id_val):
+        #     print(f"Sending VAL data {fname} with features {f_ood[:5]} and label {y}")
+        #
+        #     response = requests.post("http://127.0.0.1:8000/update_test_data/", json={
+        #         "data_name": fname,
+        #         "feat_log": f_ood.tolist(),
+        #         "label": int(y)
+        #     })
+        #
+        #     if response.status_code != 200:
+        #         print(f"Error updating ID Val data for {fname}:", response.content)
+        #     else:
+        #         print('YES ID VAL ')
 
 
 

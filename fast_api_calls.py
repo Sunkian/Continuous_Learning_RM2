@@ -632,3 +632,29 @@ async def update_feature_data(data: FeatureData):
         message = "No changes were made to the database."
 
     return {"message": message}
+
+
+
+
+
+
+
+
+
+@app.get("/get_image_paths/{dataset_name}")
+async def get_image_paths(dataset_name: str):
+    image_metadata = list(collection.find({"dataset": dataset_name}, {"_id": 0, "file_path": 1}))
+    image_paths = [meta["file_path"] for meta in image_metadata]
+    return {"image_paths": image_paths}
+
+
+from fastapi import FastAPI, HTTPException, Query
+from typing import Optional
+@app.get("/ood_count/")
+async def ood_count(dataset: Optional[str] = Query(None, title="Dataset Name")):
+    if dataset is None:
+        raise HTTPException(status_code=400, detail="Dataset name is required!")
+
+    # Count the OOD samples for the given dataset
+    ood_count = collection.count_documents({"dataset": dataset, "bool_ood": True})
+    return {"ood_count": ood_count}
