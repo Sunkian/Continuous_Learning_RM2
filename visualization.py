@@ -63,10 +63,10 @@ def plot_tsne(id_feat, id_label, ood_feat, ood_score):
     plt.colorbar(scatter_ood, ax=ax, label='OOD Score')
     ax.set_title("UMAP Visualization of ID vs OOD Features")
 
-    # for idx, class_name in enumerate(CLASS_NAMES):
-    #     mean_x = np.mean(embedding_id[id_label == idx, 0])
-    #     mean_y = np.mean(embedding_id[id_label == idx, 1])
-    #     ax.text(mean_x, mean_y, class_name, fontsize=9, ha='center', va='center', backgroundcolor='white')
+    for idx, class_name in enumerate(CLASS_NAMES):
+        mean_x = np.mean(embedding_id[id_label == idx, 0])
+        mean_y = np.mean(embedding_id[id_label == idx, 1])
+        ax.text(mean_x, mean_y, class_name, fontsize=9, ha='center', va='center', backgroundcolor='white')
 
     return fig
 
@@ -120,10 +120,10 @@ def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
     plt.colorbar(scatter_ood, ax=ax, label='OOD Score')
     ax.set_title("UMAP Visualization of ID vs OOD Features")
 
-    # for idx, class_name in enumerate(CLASS_NAMES):
-    #     mean_x = np.mean(embedding_id[id_label == idx, 0])
-    #     mean_y = np.mean(embedding_id[id_label == idx, 1])
-    #     ax.text(mean_x, mean_y, class_name, fontsize=9, ha='center', va='center', backgroundcolor='white')
+    for idx, class_name in enumerate(CLASS_NAMES):
+        mean_x = np.mean(embedding_id[id_label == idx, 0])
+        mean_y = np.mean(embedding_id[id_label == idx, 1])
+        ax.text(mean_x, mean_y, class_name, fontsize=9, ha='center', va='center', backgroundcolor='white')
 
     return fig
 
