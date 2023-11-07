@@ -27,7 +27,7 @@ def get_args():
     # model
     parser.add_argument('--method', default='', type=str, help='')
     parser.add_argument('--epochs', default=500, type=int, help='number of total epochs to run')
-    parser.add_argument('--epochs-clf', default=50, type=int, help='number of total epochs for classifiers')
+    parser.add_argument('--epochs-clf', default=2, type=int, help='number of total epochs for classifiers')
     parser.add_argument('--epochs-ft', default=2, type=int, help='number of total epochs for fine-tuning')
     parser.add_argument('-b', '--batch-size', default=64, type=int, help='mini-batch size')
     parser.add_argument('--start-epoch', default=0, type=int,

@@ -166,6 +166,7 @@ class FeatureData(BaseModel):
     label: int
     repr_flag: bool = None  # If this is optional
 
+
 @app.post("/push_feature_data/")
 async def push_feature_data(data: FeatureData):
     # Determine the correct collection based on the dataset_split
@@ -599,39 +600,27 @@ async def update_data_collection(data: DataUpdate):
     return {"message": f"Data for {data.file_name} updated successfully in data collection!"}
 
 
-
-
-
-
-
-
-
+from pymongo import UpdateOne
 @app.post("/update_feature_data/")
-async def update_feature_data(data: FeatureData):
-    # Determine the correct collection based on the dataset_split
-    if data.dataset_split == "train":
-        collection = train_collection
-    elif data.dataset_split == "val":  # Assuming 'val' means 'test' in your context
-        collection = test_collection
-    else:
-        raise HTTPException(status_code=400, detail=f"Unknown dataset split: {data.dataset_split}")
+async def update_feature_data(data_list: List[FeatureData]):
+    # Assume train_collection and test_collection are defined elsewhere
+    bulk_ops_train = []
+    bulk_ops_val = []
+    for data in data_list:
+        filter_query = {"data_name": data.data_name, "dataset_split": data.dataset_split}
+        update_query = {"$set": data.dict()}
+        operation = UpdateOne(filter_query, update_query, upsert=True)
+        if data.dataset_split == "train":
+            bulk_ops_train.append(operation)
+        elif data.dataset_split == "val":
+            bulk_ops_val.append(operation)
 
-    # Construct a filter for the document to update
-    filter_query = {"data_name": data.data_name, "dataset_split": data.dataset_split}
-    # Construct the new data to update
-    new_values = {"$set": data.dict()}
-    # Update the document if it exists, insert as new if it doesn't
-    result = collection.update_one(filter_query, new_values, upsert=True)
+    if bulk_ops_train:
+        train_collection.bulk_write(bulk_ops_train)
+    if bulk_ops_val:
+        test_collection.bulk_write(bulk_ops_val)
 
-    # Check if the document was upserted or modified
-    if result.modified_count > 0:
-        message = f"Data for {data.data_name} updated successfully in {data.dataset_split} collection!"
-    elif result.upserted_id is not None:
-        message = f"Data for {data.data_name} inserted as new in {data.dataset_split} collection!"
-    else:
-        message = "No changes were made to the database."
-
-    return {"message": message}
+    return {"messages": ["Bulk update executed successfully."]}
 
 
 

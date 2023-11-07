@@ -113,7 +113,7 @@ def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
     # Plot ID
     scatter_id = ax.scatter(embedding_id[:, 0], embedding_id[:, 1], c='blue', s=5, label='ID')
     # Plot OOD
-    scatter_ood = ax.scatter(embedding_ood[:, 0], embedding_ood[:, 1], c='black', s=5, label='OOD', alpha=0.6)
+    scatter_ood = ax.scatter(embedding_ood[:, 0], embedding_ood[:, 1], c='pink', s=5, label='OOD', alpha=0.6)
 
     # Create a legend
     ax.legend(handles=[scatter_id, scatter_ood], loc='upper right')

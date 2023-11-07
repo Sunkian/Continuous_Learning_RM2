@@ -82,6 +82,8 @@ class Exp_OWL(Exp_OWLbasic):
         begin = time.time()
 
         all_metadata = []
+        batch_data = []
+        BATCH_SIZE = 1000
 
         # 'val'/'test' loader: to get the threshold distance in ID data and check if a sample is OOD
         for split, in_loader in [('train', self.trainloaderIn), ('val', self.testloaderIn), ]:
@@ -95,6 +97,7 @@ class Exp_OWL(Exp_OWLbasic):
                 self.create_cache_file(cache_name, model, in_loader, featdims, batch_size)
             else:
                 print(f"Cache file {cache_name} already exists. Skipping creation.")  # Debug print
+
                 cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
                 feat_log = np.zeros((len(in_loader.dataset), featdims))
                 # score_log = np.zeros((len(in_loader.dataset), self.num_classes))
@@ -119,13 +122,24 @@ class Exp_OWL(Exp_OWLbasic):
                             'label': int(label[idx]),
                             'repr_flag': None  # Or whatever logic you use to set this
                         }
-                        response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=metadata)
 
-                        if response.status_code != 200:
-                            print(f"Error updating ID Train data for f'data_{idx}:", response.content)
-                        else:
-                            print(f'Pushing {split} to database')
-                        all_metadata.append(metadata)
+                        batch_data.append(metadata)
+
+                        # response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=metadata)
+                        #
+                        # if response.status_code != 200:
+                        #     print(f"Error updating ID Train data for f'data_{idx}:", response.content)
+                        # else:
+                        #     print(f'Pushing {split} to database')
+                        # all_metadata.append(metadata)
+                        if len(batch_data) >= BATCH_SIZE or idx == end_ind - 1:
+                            response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=batch_data)
+                            if response.status_code != 200:
+                                print(f"Error batch updating feature data:", response.content)
+                            else:
+                                print(f'Pushed batch to database')
+
+                            batch_data = []  # Reset the batch
 
         print(f"Time for Feature extraction over ID training/validation set: {time.time() - begin}")
 
