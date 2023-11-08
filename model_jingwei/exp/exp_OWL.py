@@ -62,16 +62,14 @@ class Exp_OWL(Exp_OWLbasic):
     #     return model_optim
 
     def id_feature_extract(self, model, id_name):
-
         """
-            extract features from in-distribution samples
+        extract features from in-distribution samples
 
         :param model: the adopted model for feature extraction
         :param id_name: the ID dataset name, e.g., CIFAR-10
-        #id_samples: (n, 3, 32, 32), a couple of new-coming normalized images
 
         :return None
-        :save files: feat_log, score_log, label;
+        :save files: feat_log, label;
         """
 
         batch_size = self.args.batch_size
@@ -85,61 +83,51 @@ class Exp_OWL(Exp_OWLbasic):
         batch_data = []
         BATCH_SIZE = 1000
 
-        # 'val'/'test' loader: to get the threshold distance in ID data and check if a sample is OOD
-        for split, in_loader in [('train', self.trainloaderIn), ('val', self.testloaderIn), ]:
-            # why testing data in in-distribution data?
+        for split, in_loader in [('train', self.trainloaderIn), ('val', self.testloaderIn)]:
+            # Generate cache_name for each split
+            cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
             print(f"Processing split: {split}")  # Debug print
 
-            cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
-
+            # Check if the cache file exists and create if necessary
             if not os.path.exists(cache_name):
                 print(f"Creating cache for: {split}")  # Debug print
                 self.create_cache_file(cache_name, model, in_loader, featdims, batch_size)
             else:
                 print(f"Cache file {cache_name} already exists. Skipping creation.")  # Debug print
 
-                cache_name = f"{self.cache_path}/{id_name}_{split}_{self.args.name}.npz"
-                feat_log = np.zeros((len(in_loader.dataset), featdims))
-                # score_log = np.zeros((len(in_loader.dataset), self.num_classes))
-                label = np.zeros(len(in_loader.dataset))
+            # Proceed with rest of the code
+            feat_log = np.zeros((len(in_loader.dataset), featdims))
+            label = np.zeros(len(in_loader.dataset))
 
-                model.eval()
-                for batch_idx, (inputs, targets) in enumerate(in_loader):
-                    inputs, targets = inputs.to(self.device), targets.to(self.device)
-                    start_ind = batch_idx * batch_size
-                    end_ind = min((batch_idx + 1) * batch_size, len(in_loader.dataset))
-                    out = model(inputs)
+            model.eval()
+            for batch_idx, (inputs, targets) in enumerate(in_loader):
+                inputs, targets = inputs.to(self.device), targets.to(self.device)
+                start_ind = batch_idx * batch_size
+                end_ind = min((batch_idx + 1) * batch_size, len(in_loader.dataset))
+                out = model(inputs)
 
-                    feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
-                    label[start_ind:end_ind] = targets.detach().cpu().numpy()
+                feat_log[start_ind:end_ind, :] = out.detach().cpu().numpy()
+                label[start_ind:end_ind] = targets.detach().cpu().numpy()
 
+                for idx in range(start_ind, end_ind):
+                    metadata = {
+                        'data_name': f'data_{idx}',  # Replace with actual data name if available
+                        'dataset_split': split,
+                        'feat_log': feat_log[idx].tolist(),
+                        'label': int(label[idx]),
+                        # Add any additional metadata as needed
+                    }
 
-                    for idx in range(start_ind, end_ind):
-                        metadata = {
-                            'data_name': f'data_{idx}',  # Replace with actual data name if available
-                            'dataset_split': split,
-                            'feat_log': feat_log[idx].tolist(),
-                            'label': int(label[idx]),
-                            'repr_flag': None  # Or whatever logic you use to set this
-                        }
+                    batch_data.append(metadata)
 
-                        batch_data.append(metadata)
+                    if len(batch_data) >= BATCH_SIZE or idx == end_ind - 1:
+                        response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=batch_data)
+                        if response.status_code != 200:
+                            print(f"Error batch updating feature data:", response.content)
+                        else:
+                            print(f'Pushed data_{idx} from {split} batch to database')
 
-                        # response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=metadata)
-                        #
-                        # if response.status_code != 200:
-                        #     print(f"Error updating ID Train data for f'data_{idx}:", response.content)
-                        # else:
-                        #     print(f'Pushing {split} to database')
-                        # all_metadata.append(metadata)
-                        if len(batch_data) >= BATCH_SIZE or idx == end_ind - 1:
-                            response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=batch_data)
-                            if response.status_code != 200:
-                                print(f"Error batch updating feature data:", response.content)
-                            else:
-                                print(f'Pushed batch to database')
-
-                            batch_data = []  # Reset the batch
+                        batch_data = []  # Reset the batch after sending
 
         print(f"Time for Feature extraction over ID training/validation set: {time.time() - begin}")
 
@@ -227,9 +215,11 @@ class Exp_OWL(Exp_OWLbasic):
                         'ood_label': int(ood_label[start_ind + idx])
                     }
                     response = requests.post("http://127.0.0.1:8000/update_ood_data/", json=update_data)
+
                     print(response.content)
                     if response.status_code == 200:
                         print(f"Updated data for {filename} successfully!")
+                        print('LABELS', update_data['ood_label'])
                     else:
                         print(f"Failed to update data for {filename}!")
 
@@ -298,35 +288,42 @@ class Exp_OWL(Exp_OWLbasic):
         """
             read feature log from out-of-distribution (ood) cached files
 
-        :param ood_dataset: name of the ood dataset, e.g., "SVHN"
+        :param ood_name: name of the ood dataset, e.g., "SVHN"
         :return caches: dict, key-value of 'ood_feat' and 'ood_score'
 
         """
 
         caches = {}
         normalizer = lambda x: x / (np.linalg.norm(x, ord=2, axis=-1, keepdims=True) + 1e-10)
-        prepos_feat = lambda x: np.ascontiguousarray(
-            normalizer(x))  # Last Layer only ## x is changed from multi-layer features to single-layer features
+        prepos_feat = lambda x: np.ascontiguousarray(normalizer(x))  # Normalize the feature vectors
 
         # Fetch data from the route instead of loading from cache_name
         response = requests.get('http://127.0.0.1:8000/get_ood_data/')
-        data = response.json()
+        if response.status_code == 200:
+            data = response.json()
 
-        feat_logs_list = []
-        labels_list = []
-        names = []
-        for item in data['data']:
-            feat_logs_list.append(item['ood_feat_log'])
-            labels_list.append(item['ood_label'])
-            names.append(item['file_name'])
+            feat_logs_list = []
+            labels_list = []
+            names = []
+            for item in data['data']:
+                try:
+                    print('ITEM : ', item['ood_feat_log'])
+                    feat_logs_list.append(item['ood_feat_log'])
+                    labels_list.append(item['ood_label'])
+                    names.append(item['file_name'])
+                except KeyError as e:
+                    print(f"Missing key in data item: {e}")
+                    # Handle the missing key as needed, for example skip this item or fill with defaults.
 
-        caches['ood_feat'] = prepos_feat(np.array(feat_logs_list))
-        caches["ood_label"] = np.array(labels_list)
-        caches["names"] = names
+            caches['ood_feat'] = prepos_feat(np.array(feat_logs_list))
+            caches["ood_label"] = np.array(labels_list)
+            caches["names"] = names
 
-        # print(caches)
+            # print(caches)
 
-        return caches
+            return caches
+        else:
+            raise Exception(f"Failed to get OOD data from server: {response.status_code}")
 
     def ood_detection(self, ood_name, K=50):
 
@@ -349,8 +346,8 @@ class Exp_OWL(Exp_OWLbasic):
         :return pred_labels: the class predictions
 
         """
-        # id_name = self.args.in_dataset
-        id_name = self.args.in_dataset + "_ft" #### For fine-tuning !!
+        id_name = self.args.in_dataset
+        # id_name = self.args.in_dataset + "_ft" #### For fine-tuning !!
 
 # Lire les features directement à partir de la base de données updatée
         caches_id = self.read_id(id_name)

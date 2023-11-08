@@ -664,5 +664,30 @@ async def get_ood_data(dataset_name: str):
     ood_data_cursor = collection.find({"dataset": dataset_name})  # Change to the correct key
     ood_data = list(ood_data_cursor)
     ood_feat = [data['ood_feat_log'] for data in ood_data if 'ood_feat_log' in data]  # Ensure the key exists
-    ood_score = [data['ood_label'] for data in ood_data if 'ood_label' in data]  # Ensure the key exists
-    return {"ood_feat": ood_feat, "ood_score": ood_score}
+    ood_label = [data['ood_label'] for data in ood_data if 'ood_label' in data]  # Ensure the key exists
+    return {"ood_feat": ood_feat, "ood_label": ood_label}
+
+
+
+
+@app.get("/get_image_data/{dataset_name}")
+async def get_image_data(dataset_name: str):
+    # Query the MongoDB for images belonging to dataset_name
+    image_data_cursor = collection.find({"dataset": dataset_name})
+
+    # Convert cursor to list of dictionaries
+    image_data_list = list(image_data_cursor)
+
+    if not image_data_list:
+        raise HTTPException(status_code=404, detail=f"No image data found for dataset: {dataset_name}")
+
+    # Simplify the structure if needed and remove unnecessary MongoDB fields like '_id'
+    image_data_response = [
+        {
+            "image_path": item["file_path"],
+            "target": item.get("ood_label", 0)  # Provide default target if not present
+        }
+        for item in image_data_list
+    ]
+
+    return {"image_data": image_data_response}

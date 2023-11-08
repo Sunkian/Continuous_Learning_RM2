@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import torch
+import concurrent.futures
 
 from model_jingwei.exp.exp_OWL import Exp_OWL
 from model_jingwei.utils.args_loader import get_args
@@ -107,8 +108,20 @@ def run():
     # Retrieve the list of datasets using FastAPI route
     # datasets_response = requests.get("http://127.0.0.1:8000/get_datasets/")
     # datasets = datasets_response.json()["datasets"]
+
+
+    if st.button('ID feature extraction'):
+        args = get_args()
+        exp = Exp_OWL(args)
+        # exp.id_feature_extract(exp.model, args.in_dataset)
+        with st.spinner('Extracting ID features... Please wait.'):
+            exp.id_feature_extract(exp.model, args.in_dataset)
+        st.success('ID features extracted successfully !')
+
+
+
     option = st.selectbox('Select an option :',
-                          ('ID feature extraction',
+                          (
                            'NS feature extraction',
                            'OOD detection (Inference)',
                            'Fine-Tune'))
@@ -126,18 +139,11 @@ def run():
     files = fetch_files(selected_dataset)
     # selected_file = st.selectbox("Select an Image:", files)
 
+
     if st.button('Run'):
         args = get_args()
         exp = Exp_OWL(args)
-        if option == 'ID feature extraction':
-            st.write('HELLO')
-            exp.id_feature_extract(exp.model, args.in_dataset)
-            st.success('ID features extracted successfully !')
-            # response = requests.post(f"{BASE_API_URL}/store_metadata/")
-            # if response.status_code == 200:
-            #     st.success(response.json().get("status", "Metadata stored successfully!"))
-            # else:
-            #     st.error("Failed to store metadata!")
+
 
         if option == 'NS feature extraction':
             transformations = transforms.Compose([
@@ -147,7 +153,8 @@ def run():
             args.out_datasets = [selected_dataset]
             dataset = CustomDataset(dataset_name=selected_dataset, transform=transformations)
             data_loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
-            exp.ns_feature_extract(exp.model, data_loader, selected_dataset)
+            with st.spinner('Extracting "new sample" features... Please wait.'):
+                exp.ns_feature_extract(exp.model, data_loader, selected_dataset)
 
             st.success('NS features extracted successfully !')
 
@@ -157,7 +164,8 @@ def run():
 
         if option == 'OOD detection (Inference)':
             # st.write('Hello')
-            unknown_idx, scores_conf, bool_ood = exp.ood_detection(selected_dataset, K=50)
+            with st.spinner('Extracting Out of Distribution results... Please wait.'):
+                unknown_idx, scores_conf, bool_ood = exp.ood_detection(selected_dataset, K=50)
 
             # update_data = []
             # for idx, file_name in enumerate(files):  # Assuming 'files' contains the list of file names in the dataset

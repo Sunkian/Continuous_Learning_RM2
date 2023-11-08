@@ -15,13 +15,17 @@ class CustomDataset(data.Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-        # Call the API to get image paths
-        response = requests.get(f"{api_url}/get_image_paths/{dataset_name}")
-        image_paths_data = response.json()
-        self.image_paths = image_paths_data.get("image_paths", [])
+        # Call the API to get image data
+        response = requests.get(f"{api_url}/get_image_data/{dataset_name}")
+        image_data = response.json()
 
-        # Since there are no labels, label every image with '0'
-        self.targets = [0 for _ in self.image_paths]
+        # Extract image paths and targets if provided, otherwise default to 0
+        self.image_paths = []
+        self.targets = []
+        for item in image_data.get("image_data", []):
+            self.image_paths.append(item.get('image_path'))
+            # Assign a default target of 0 if not provided
+            self.targets.append(item.get('target', 0))
 
     def __getitem__(self, idx):
         img_path = self.image_paths[idx]

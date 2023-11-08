@@ -86,12 +86,12 @@ def load_ood_data(dataset_name):
     data = response.json()
     # print(data)
     ood_feat = np.array(data['ood_feat'])
-    ood_score = np.array(data['ood_score'])
-    return ood_feat, ood_score
+    ood_label = np.array(data['ood_label'])
+    return ood_feat, ood_label
 
 
 
-def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
+def plot_umap_v2(id_feat, id_label, ood_feat, ood_label):
 
     print(f"id_feat shape: {id_feat.shape}")
     print(f"ood_feat shape: {ood_feat.shape}")
@@ -124,6 +124,15 @@ def plot_umap_v2(id_feat, id_label, ood_feat, ood_score):
         mean_x = np.mean(embedding_id[id_label == idx, 0])
         mean_y = np.mean(embedding_id[id_label == idx, 1])
         ax.text(mean_x, mean_y, class_name, fontsize=9, ha='center', va='center', backgroundcolor='white')
+
+    unique_ood_labels = np.unique(ood_label)
+    if len(unique_ood_labels) < 20:  # Example threshold to prevent clutter
+        for ood_idx in unique_ood_labels:
+            mean_x = np.mean(embedding_ood[ood_label == ood_idx, 0])
+            mean_y = np.mean(embedding_ood[ood_label == ood_idx, 1])
+            ax.text(mean_x, mean_y, f"OOD_{ood_idx}", fontsize=9, ha='center', va='center', backgroundcolor='white')
+
+
 
     return fig
 
