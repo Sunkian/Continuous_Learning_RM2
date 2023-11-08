@@ -586,9 +586,9 @@ class Exp_OWL(Exp_OWLbasic):
         """
         # freeze all layer except the (last) head projection layer
         self.model.train()
-        for param in self.model.parameters():
-            param.requires_grad = False
-        self.model.head.requires_grad = True
+        # for param in self.model.parameters():
+        #     param.requires_grad = False
+        # self.model.head.requires_grad = True
 
         begin = time.time()
         for epoch in range(epochs):
@@ -722,7 +722,7 @@ class Exp_OWL(Exp_OWLbasic):
 
         torch.save({"state_dict": self.model.state_dict()}, self.ft_model_path)
 
-        classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
+        self.classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
 
         # re-extract features for ID and OOD data using fine-tuned model
         print('Re-extracting features for ID data ...')
@@ -761,13 +761,13 @@ class Exp_OWL(Exp_OWLbasic):
         dataset_ood = TensorDataset(torch.tensor(feat_ood), torch.tensor(y_ood))
         # train and save the fine-tuned classifier (SGD)
         dataloader_train = DataLoader(dataset_train, batch_size, shuffle)
-        self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, classifier_ft,
-                                                            set_optimizer(self.args, self.classifier_init),
-                                                            epochs=self.args.epochs_clf)
-        # Change the line above to :
         # self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, classifier_ft,
-        #                                                     set_optimizer(self.args, self.classifier_ft),
+        #                                                     set_optimizer(self.args, self.classifier_init),
         #                                                     epochs=self.args.epochs_clf)
+        # Change the line above to :
+        self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, self.classifier_ft,
+                                                            set_optimizer(self.args, self.classifier_ft),
+                                                            epochs=self.args.epochs_clf)
         torch.save({"state_dict": self.classifier_ft.state_dict()}, self.ft_classifier_path)
 
 
