@@ -127,7 +127,10 @@ def run():
                            'Fine-Tune'))
 
     if option == 'Fine-Tune':
-        datasets = fetch_datasets(filter_prefix="FT")
+        # datasets = fetch_datasets(filter_prefix="FT")
+
+        ## TO do : filter on the datasets that already have been used for fine-tune ('new_label has been added' for example)
+        datasets = fetch_datasets()
     else:
         datasets = fetch_datasets()
     # st.write(datasets)
@@ -209,60 +212,5 @@ def run():
             n_ood = 5  # take 50 ood samples
             exp.train_global(selected_dataset, True, ood_class, n_ood)
             st.success('Fine-Tune successfully done')
-
-
-
-
-
-
-
-
-
-
-
-
-        # elif option == 'New-Sample feature extraction':
-        #     args.out_datasets = [selected_dataset]
-        #     print('>>>>>>>start feature extraction on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(args.out_datasets))
-        #     exp.ns_feature_extract(selected_dataset)
-        #     st.success("New features extracted successfully !")
-        #     print("New features extracted successfully !")
-        #
-        #     base_path = "/app/cache/"
-        #     # file_name = "/app/cache/SVHNvsCIFAR-10_resnet18-supcon_out_alllayers.npz"
-        #     # original_file_name = "SVHNvsCIFAR-10_resnet18-supcon_out_alllayers.npz"
-        #     new_file_name = f"{selected_dataset}vsCIFAR-10_resnet18-supcon_out_alllayers.npz"
-        #
-        #     # Rename the file
-        #     # os.rename(os.path.join(base_path, original_file_name), os.path.join(base_path, new_file_name))
-        #
-        #     # Set the new file path
-        #     file_name = os.path.join(base_path, new_file_name)
-        #
-        #     # response = upload_large_npz_to_backend(file_name)
-        #     # print(response.json())
-        #     st.success(".npz file sucessfully uploaded in the file system")
-        #     print(".npz file sucessfully uploaded in the file syste")
-        #
-        # elif option == 'Out-Of-Distribution detection':
-        #     unknown_idx, bool_ood, scores_conf, pred_scores, pred_labels = exp.ood_detection(selected_dataset, K=50)
-        #
-        #     # Prepare data for API
-        #     update_data = []
-        #     for idx, file_name in enumerate(files):  # Assuming 'files' contains the list of file names in the dataset
-        #         update_data.append({
-        #             "file_name": file_name,
-        #             "bool_ood": str(bool_ood[idx]),
-        #             "scores_conf": str(scores_conf[idx]),
-        #             "pred_scores": str(pred_scores[idx]),
-        #             "pred_labels": str(pred_labels[idx]),
-        #         })
-        #
-        #     # Send POST request to update the results
-        #     response = requests.post(f"{BASE_API_URL}/update_results/", json=update_data)
-        #     if response.status_code == 200:
-        #         st.success("Data updated successfully!")
-        #     else:
-        #         st.error("Failed to update data!")
 
 

@@ -15,7 +15,7 @@ from pymongo.errors import PyMongoError
 from starlette.responses import JSONResponse
 from starlette.requests import Request
 from fastapi import FastAPI
-from typing import List
+from typing import List, Optional
 from gridfs import GridFS
 from fastapi.responses import FileResponse
 
@@ -26,14 +26,15 @@ METADATA_DIR = "data/metadata"  # Directory for metadata
 BATCH_DIR = "datasets/data/cifar-10-batches-py"
 # MongoDB setup
 client = MongoClient("mongodb://localhost:27017/")
-db = client["continuous-learning"]
+db = client["nine-continuous-learning"]
 collection = db["data"]
 collection2 = db["id_metadata_collection"]
 collection3 = db["id_metadata_collection_TEST"]
 fs = GridFS(db)
 
 train_collection = db["train"]
-test_collection = db["test"]
+# val_collection = db["test"]
+val_collection = db["val"]
 
 class Metadata(BaseModel):
     batch_label: str
@@ -154,7 +155,7 @@ async def store_metadata():
                 "label": label,
                 "filename": filename.decode("utf-8")
             }
-            test_collection.insert_one(test_metadata)
+            val_collection.insert_one(test_metadata)
 
     return {"status": "Metadata stored successfully for each image"}
 
@@ -163,7 +164,8 @@ class FeatureData(BaseModel):
     data_name: str
     dataset_split: str
     feat_log: list
-    label: int
+    ground_truth_label: int
+    updated_label: Optional[int] = None
     repr_flag: bool = None  # If this is optional
 
 
@@ -173,7 +175,7 @@ async def push_feature_data(data: FeatureData):
     if data.dataset_split == "train":
         collection = train_collection
     elif data.dataset_split == "val":  # Assuming 'val' means 'test' in your context
-        collection = test_collection
+        collection = val_collection
     else:
         raise HTTPException(status_code=400, detail=f"Unknown dataset split: {data.dataset_split}")
 
@@ -373,14 +375,14 @@ async def get_ood_images():
 class UpdateGroundTruth(BaseModel):
     file_names: List[str]
     class_ground_truth: str
-    dataset : str
+    # dataset : str
 
 @app.post("/update_ground_truth/")
 async def update_ground_truth(data: UpdateGroundTruth):
     for file_name in data.file_names:
         collection.update_one(
             {"file_name": file_name},
-            {"$set": {"class_ground_truth": data.class_ground_truth, "dataset" : data.dataset}}
+            {"$set": {"class_ground_truth": data.class_ground_truth}}
         )
     return {"status": "Ground truth updated successfully"}
 
@@ -400,7 +402,7 @@ if __name__ == "__main__":
 #     # split corresponds to dataset_split (either 'train' or 'val')
 #     fetched_data = list(
 #         train_collection.find({"data_name": id_name, "dataset_split": split})) if split == "train" else list(
-#         test_collection.find({"data_name": id_name, "dataset_split": split}))
+#         val_collection.find({"data_name": id_name, "dataset_split": split}))
 #
 #     return {"data": fetched_data}
 #
@@ -427,7 +429,7 @@ async def fetch_id_data(data_name: str, dataset_split: str):
     if dataset_split == "train":
         collection = train_collection
     elif dataset_split == "val":  # Assuming 'val' means 'test' in your context
-        collection = test_collection
+        collection = val_collection
     else:
         raise HTTPException(status_code=400, detail=f"Unknown dataset split: {dataset_split}")
 
@@ -474,7 +476,7 @@ async def get_train_data():
 async def get_test_data():
     try:
         # Fetch all documents from the train_collection
-        cursor = test_collection.find({})
+        cursor = val_collection.find({})
         data = list(cursor)  # Convert the cursor to a list
         # Removing ObjectId from the response
         for item in data:
@@ -513,7 +515,7 @@ async def get_ood_data():
 #     if data.dataset_split == "train":
 #         coll = train_collection
 #     elif data.dataset_split == "test":
-#         coll = test_collection
+#         coll = val_collection
 #     elif data.dataset_split == "data":
 #         coll = collection
 #     else:
@@ -577,7 +579,7 @@ async def update_test_data(data: TestUpdate):
             "label": data.label
         }
     }
-    result = test_collection.update_one(query, update, upsert=True)
+    result = val_collection.update_one(query, update, upsert=True)
     if result.matched_count == 0:
         raise HTTPException(status_code=400, detail=f"Data with name {data.data_name} not found!")
     elif result.modified_count == 0:
@@ -603,24 +605,28 @@ async def update_data_collection(data: DataUpdate):
 from pymongo import UpdateOne
 @app.post("/update_feature_data/")
 async def update_feature_data(data_list: List[FeatureData]):
-    # Assume train_collection and test_collection are defined elsewhere
     bulk_ops_train = []
     bulk_ops_val = []
     for data in data_list:
         filter_query = {"data_name": data.data_name, "dataset_split": data.dataset_split}
-        update_query = {"$set": data.dict()}
-        operation = UpdateOne(filter_query, update_query, upsert=True)
+        update_data = data.dict(exclude_unset=True)  # Exclude fields not set in the request
         if data.dataset_split == "train":
-            bulk_ops_train.append(operation)
+            bulk_ops_train.append(UpdateOne(filter_query, {"$set": update_data}, upsert=True))
         elif data.dataset_split == "val":
-            bulk_ops_val.append(operation)
+            existing_data = val_collection.find_one(filter_query)
+            if existing_data and 'updated_label' not in existing_data:
+                # If existing data does not have 'updated_label', set it to the current ground_truth_label
+                update_data['updated_label'] = data.ground_truth_label
+            bulk_ops_val.append(UpdateOne(filter_query, {"$set": update_data}, upsert=True))
 
     if bulk_ops_train:
         train_collection.bulk_write(bulk_ops_train)
     if bulk_ops_val:
-        test_collection.bulk_write(bulk_ops_val)
+        val_collection.bulk_write(bulk_ops_val)
 
     return {"messages": ["Bulk update executed successfully."]}
+
+
 
 
 

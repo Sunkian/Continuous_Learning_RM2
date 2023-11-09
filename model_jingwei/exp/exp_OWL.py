@@ -61,7 +61,7 @@ class Exp_OWL(Exp_OWLbasic):
     #     model_optim = optim.Adam(self.model.parameters(), lr=self.learning_rate)
     #     return model_optim
 
-    def id_feature_extract(self, model, id_name):
+    def id_feature_extract(self, model, id_name, fine_tuned=False):
         """
         extract features from in-distribution samples
 
@@ -114,20 +114,29 @@ class Exp_OWL(Exp_OWLbasic):
                         'data_name': f'data_{idx}',  # Replace with actual data name if available
                         'dataset_split': split,
                         'feat_log': feat_log[idx].tolist(),
-                        'label': int(label[idx]),
+                        'ground_truth_label': int(label[idx]),
                         # Add any additional metadata as needed
                     }
+                    if fine_tuned and split == 'val':
+                        metadata['updated_label'] = int(label[idx])
+
+
+                    # if split == 'val':
+                    #     metadata['updated_label'] = int(label[idx])
+                    #
+                    # batch_data.append(metadata)
 
                     batch_data.append(metadata)
 
+                    # Send POST request in batches
                     if len(batch_data) >= BATCH_SIZE or idx == end_ind - 1:
                         response = requests.post("http://127.0.0.1:8000/update_feature_data/", json=batch_data)
                         if response.status_code != 200:
                             print(f"Error batch updating feature data:", response.content)
                         else:
-                            print(f'Pushed data_{idx} from {split} batch to database')
+                            print(f'Pushed {len(batch_data)} records from {split} split to the database.')
 
-                        batch_data = []  # Reset the batch after sending
+                        batch_data = []  # Clear batch data after POST request
 
         print(f"Time for Feature extraction over ID training/validation set: {time.time() - begin}")
 
@@ -160,23 +169,6 @@ class Exp_OWL(Exp_OWLbasic):
 
     def ns_feature_extract(self, model, dataloader, ood_name):
 
-        """
-            extract features from new-coming samples
-
-        # REMARKs
-            - For testing purpose, the target groundtruths are retrieved and cached
-            - For GUI, the target groundtruths should be labeled by users
-
-        #:param ood_samples: (n, 3, 32, 32), a couple of new-coming normalized images
-        :param model: the backbone model used for feature extraction
-        :param dataloader: the dataloader for ood data
-        :param ood_name: name of the ood dataset, e.g., "SVHN"
-
-        :return ood_feat_log, ood_label
-        :save files: feat_log; (score_log) is removed
-
-        """
-
         batch_size = self.args.batch_size
         dummy_input = torch.zeros((1, 3, 32, 32)).to(self.device)
         feat = model(dummy_input)
@@ -196,7 +188,7 @@ class Exp_OWL(Exp_OWLbasic):
 
             for batch_idx, (inputs, targets) in enumerate(dataloader):
                 current_filenames = filenames_list[processed_samples: processed_samples + len(inputs)]
-                print('CURRENT_FILENAMES:', current_filenames)
+                # print('CURRENT_FILENAMES:', current_filenames)
 
                 inputs = inputs.to(self.device)
                 actual_batch_size = inputs.shape[0]
@@ -235,9 +227,6 @@ class Exp_OWL(Exp_OWLbasic):
             ood_feat_log = data['ood_feat_log']
             ood_label = data['ood_label']
 
-            # print(ood_feat_log)
-            # print(ood_label)
-
         print(f"Time for Feature extraction over OOD dataset: {time.time() - begin}")
 
         return ood_feat_log, ood_label
@@ -272,15 +261,18 @@ class Exp_OWL(Exp_OWLbasic):
             feat_logs_list = []
             labels_list = []
             names = []
+            # print('DATA', data['data'])
             for item in data['data']:
                 feat_logs_list.append(item['feat_log'])
-                labels_list.append(item['label'])
+                labels_list.append(item['ground_truth_label'])
                 names.append(item['data_name'])
 
             caches["id_feat_" + split] = prepos_feat(np.array(feat_logs_list))
             caches["id_label_" + split] = np.array(labels_list)
             caches["names"] = names
             # caches["names_" + split] = names
+
+            print(caches)
 
         return caches
 
@@ -307,7 +299,7 @@ class Exp_OWL(Exp_OWLbasic):
             names = []
             for item in data['data']:
                 try:
-                    print('ITEM : ', item['ood_feat_log'])
+                    # print('ITEM : ', item['ood_feat_log'])
                     feat_logs_list.append(item['ood_feat_log'])
                     labels_list.append(item['ood_label'])
                     names.append(item['file_name'])
@@ -353,18 +345,28 @@ class Exp_OWL(Exp_OWLbasic):
         caches_id = self.read_id(id_name)
         caches_ood = self.read_ood(ood_name)
 
+        print('caches_id val keys : ', caches_id.keys())
+        #
+        # print('Caches ID', caches_id.keys())
+        # print('Caches OOD', caches_ood.keys())
+
 
         feat_id_train = caches_id["id_feat_train"]
+        # print('FEAT ID TRAIN', feat_id_train)
         feat_id_val = caches_id["id_feat_val"]
+        # print('FEAT ID VAL', feat_id_val)
         feat_ood = caches_ood['ood_feat']
 
         names = caches_ood['names']
 
-        print(names)
+        # print(names)
 
 
 
-        print('SHAPE', feat_id_train.shape)
+        # print('SHAPE', feat_id_train.shape[1])
+
+        # print('feat_id_val shape:', feat_id_val.shape)
+
         # Out-of-distribution(OOD) detection
         index = faiss.IndexFlatL2(feat_id_train.shape[1])
         index.add(feat_id_train)
@@ -411,7 +413,7 @@ class Exp_OWL(Exp_OWLbasic):
                     'scores_conf': float(scores_conf[idx])
                 }
                 response = requests.post("http://127.0.0.1:8000/update_ood_data2/", json=update_data)
-                print(response.content)
+                # print(response.content)
                 if response.status_code == 200:
                     print(f"Updated data for {filename} successfully!!!!")
                 else:
@@ -664,6 +666,7 @@ class Exp_OWL(Exp_OWLbasic):
 
         preds = np.concatenate(preds, axis=0)  # (N, C)
         preds = np.argmax(preds, axis=1)  # (N)
+        print('Pred : ', preds)
         ground_truths = np.concatenate(ground_truths, axis=0)
 
         print('inference dataset info: ', np.unique(ground_truths, return_counts=True))
@@ -726,7 +729,7 @@ class Exp_OWL(Exp_OWLbasic):
 
         # re-extract features for ID and OOD data using fine-tuned model
         print('Re-extracting features for ID data ...')
-        self.id_feature_extract(self.model, self.args.in_dataset + "_ft")
+        self.id_feature_extract(self.model, self.args.in_dataset + "_ft", fine_tuned=True)
         # print('Re-extracting features for ID data ...')
         caches_id_ft = self.read_id(self.args.in_dataset + "_ft")
         feat_id_train, y_id_train = caches_id_ft["id_feat_train"], caches_id_ft["id_label_train"]
