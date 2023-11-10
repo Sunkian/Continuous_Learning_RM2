@@ -94,7 +94,8 @@ async def create_upload_files(dataset_name: str = Form(...), files: list[UploadF
             "file_name": image_file,
             "dataset": dataset_name,
             "file_path": str(dataset_path / image_file),  # Convert Path object to string
-            "upload_timestamp": datetime.datetime.now().isoformat()  # Store the timestamp in ISO format
+            "upload_timestamp": datetime.datetime.now().isoformat(),  # Store the timestamp in ISO format
+            "reviewed" : False
         }
 
         # Insert the metadata document into the MongoDB collection
@@ -366,7 +367,7 @@ async def update_results(data: List[UpdateData]):
 
 @app.get("/get_ood_images/")
 async def get_ood_images():
-    ood_images = list(collection.find({"bool_ood": True}, {"_id": 0, "file_path": 1, "file_name": 1, "dataset": 1}))
+    ood_images = list(collection.find({"bool_ood": True}, {"_id": 0, "file_path": 1, "file_name": 1, "dataset": 1, "class_ground_truth" : 1}))
     return ood_images
 
 
@@ -375,7 +376,7 @@ async def get_ood_images():
 class UpdateGroundTruth(BaseModel):
     file_names: List[str]
     class_ground_truth: str
-    # dataset : str
+    dataset : str
     reviewed: bool
 
 @app.post("/update_ground_truth/")
@@ -383,7 +384,7 @@ async def update_ground_truth(data: UpdateGroundTruth):
     for file_name in data.file_names:
         collection.update_one(
             {"file_name": file_name},
-            {"$set": {"class_ground_truth": data.class_ground_truth, "reviewed": data.reviewed}}
+            {"$set": {"class_ground_truth": data.class_ground_truth, "dataset" : data.dataset, "reviewed": data.reviewed}}
         )
     return {"status": "Ground truth updated successfully"}
 

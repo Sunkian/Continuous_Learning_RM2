@@ -668,7 +668,7 @@ class Exp_OWL(Exp_OWLbasic):
             for i, pred_label in enumerate(pred_labels):
                 class_name = class_names[pred_label]
                 output_info.append((pred_label, class_name))  # Store the label and class name
-                print(f'Prediction: Class {class_name}, Label: {pred_label}')
+                # print(f'Prediction: Class {class_name}, Label: {pred_label}')
 
         print('inference dataset info: ', np.unique(ground_truths, return_counts=True))
 
@@ -693,6 +693,8 @@ class Exp_OWL(Exp_OWLbasic):
         feat_id_train, y_id_train = caches_id["id_feat_train"], caches_id["id_label_train"]
         feat_id_val, y_id_val = caches_id["id_feat_val"], caches_id["id_label_val"]
         feat_ood, y_ood = caches_ood['ood_feat'], caches_ood['ood_label']
+
+        print(len(feat_id_train), len(y_id_train), len(feat_id_val), len(y_id_val), len(feat_ood), len(y_ood))
 
         print("test 1: ", feat_id_train.shape, y_id_train.shape)
         dataset_train = TensorDataset(torch.tensor(feat_id_train), torch.tensor(y_id_train))
@@ -723,14 +725,16 @@ class Exp_OWL(Exp_OWLbasic):
         print("Evaluation of the init model \n")
 
         # Evaluate on In-Distribution Validation Data
+        print('Evaluation on  In-Distribution Data :')
         dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
         accu_score_id, id_predictions = self.inference(self.classifier_init, dataloader_val, shuffle,
                                                        class_names=class_names)
         print("Initial model's accuracy on IN data: {}".format(accu_score_id))
-        for label, class_name in id_predictions:
-            print(f'IN Data - Prediction: Class {class_name}, Label: {label}')
+        # for label, class_name in id_predictions:
+            # print(f'IN Data - Prediction: Class {class_name}, Label: {label}')
 
         # Evaluate on Out-of-Distribution Data
+        print('Evaluation on  Out-of-Distribution Data :')
         dataloader_ood = DataLoader(dataset_ood, batch_size, shuffle)
         accu_score_ood, ood_predictions = self.inference(self.classifier_init, dataloader_ood, shuffle,
                                                          class_names=class_names)
@@ -740,64 +744,64 @@ class Exp_OWL(Exp_OWLbasic):
 
         # ----------------------------------------------------------------
 
-        # Fine-tuning with ood data
-        ft_dataloader = self.build_ft_dataloader(ood_name, batch_size, shuffle, ood_class, n_ood)
-        loss_avg_ft = self.fine_tune(ft_dataloader, set_optimizer(self.args, self.model), epochs=self.args.epochs_ft,
-                                     method='SupCon')
-
-        torch.save({"state_dict": self.model.state_dict()}, self.ft_model_path)
-
-        self.classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
-
-        # re-extract features for ID and OOD data using fine-tuned model
-        print('Re-extracting features for ID data ...')
-        self.id_feature_extract(self.model, self.args.in_dataset + "_ft", fine_tuned=True)
+        # # Fine-tuning with ood data
+        # ft_dataloader = self.build_ft_dataloader(ood_name, batch_size, shuffle, ood_class, n_ood)
+        # loss_avg_ft = self.fine_tune(ft_dataloader, set_optimizer(self.args, self.model), epochs=self.args.epochs_ft,
+        #                              method='SupCon')
+        #
+        # torch.save({"state_dict": self.model.state_dict()}, self.ft_model_path)
+        #
+        # self.classifier_ft = LinearClassifier(name=base_model_name, num_classes=self.num_classes + n_new_class)
+        #
+        # # re-extract features for ID and OOD data using fine-tuned model
         # print('Re-extracting features for ID data ...')
-        caches_id_ft = self.read_id(self.args.in_dataset + "_ft")
-        feat_id_train, y_id_train = caches_id_ft["id_feat_train"], caches_id_ft["id_label_train"]
-        feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
-        feat_ood, y_ood = self.ns_feature_extract(self.model, ft_dataloader, ood_name + "_ft")
-
-        response = requests.get(f"http://127.0.0.1:8000/list_files/{ood_name}/")
-        if response.status_code == 200:
-            file_data = response.json()
-            filenames = file_data.get("files", [])
-        else:
-            print("Failed to retrieve filenames!")
-            filenames = []  # Empty list as a fallback
-
-        for fname, f_ood, y in zip(filenames, feat_ood, y_ood):
-            response = requests.post("http://127.0.0.1:8000/update_data_collection/", json={
-                "file_name": fname,
-                "ood_feat_log": f_ood.tolist(),
-                "ood_label": int(y)
-            })
-
-            if response.status_code != 200:
-                print(f"Error updating OOD data for {fname}:", response.content)
-            else:
-                print('Pushing OOD to the database')
-
-        dataset_train = TensorDataset(torch.tensor(feat_id_train), torch.tensor(y_id_train))
-        dataset_val = TensorDataset(torch.tensor(feat_id_val), torch.tensor(y_id_val))
-        dataset_ood = TensorDataset(torch.tensor(feat_ood), torch.tensor(y_ood))
-        # train and save the fine-tuned classifier (SGD)
-        dataloader_train = DataLoader(dataset_train, batch_size, shuffle)
-        # self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, classifier_ft,
-        #                                                     set_optimizer(self.args, self.classifier_init),
+        # self.id_feature_extract(self.model, self.args.in_dataset + "_ft", fine_tuned=True)
+        # # print('Re-extracting features for ID data ...')
+        # caches_id_ft = self.read_id(self.args.in_dataset + "_ft")
+        # feat_id_train, y_id_train = caches_id_ft["id_feat_train"], caches_id_ft["id_label_train"]
+        # feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
+        # feat_ood, y_ood = self.ns_feature_extract(self.model, ft_dataloader, ood_name + "_ft")
+        #
+        # response = requests.get(f"http://127.0.0.1:8000/list_files/{ood_name}/")
+        # if response.status_code == 200:
+        #     file_data = response.json()
+        #     filenames = file_data.get("files", [])
+        # else:
+        #     print("Failed to retrieve filenames!")
+        #     filenames = []  # Empty list as a fallback
+        #
+        # for fname, f_ood, y in zip(filenames, feat_ood, y_ood):
+        #     response = requests.post("http://127.0.0.1:8000/update_data_collection/", json={
+        #         "file_name": fname,
+        #         "ood_feat_log": f_ood.tolist(),
+        #         "ood_label": int(y)
+        #     })
+        #
+        #     if response.status_code != 200:
+        #         print(f"Error updating OOD data for {fname}:", response.content)
+        #     else:
+        #         print('Pushing OOD to the database')
+        #
+        # dataset_train = TensorDataset(torch.tensor(feat_id_train), torch.tensor(y_id_train))
+        # dataset_val = TensorDataset(torch.tensor(feat_id_val), torch.tensor(y_id_val))
+        # dataset_ood = TensorDataset(torch.tensor(feat_ood), torch.tensor(y_ood))
+        # # train and save the fine-tuned classifier (SGD)
+        # dataloader_train = DataLoader(dataset_train, batch_size, shuffle)
+        # # self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, classifier_ft,
+        # #                                                     set_optimizer(self.args, self.classifier_init),
+        # #                                                     epochs=self.args.epochs_clf)
+        # # Change the line above to :
+        # self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, self.classifier_ft,
+        #                                                     set_optimizer(self.args, self.classifier_ft),
         #                                                     epochs=self.args.epochs_clf)
-        # Change the line above to :
-        self.classifier_ft, loss_avg, top1_avg = self.train(dataloader_train, self.classifier_ft,
-                                                            set_optimizer(self.args, self.classifier_ft),
-                                                            epochs=self.args.epochs_clf)
-        torch.save({"state_dict": self.classifier_ft.state_dict()}, self.ft_classifier_path)
-
-        # evaluation of the fine-tuned model
-        print("Evaluation of the fine-tuned model \n")
-        print("ID data")
-        dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
-        accu_score_id = self.inference(self.classifier_ft, dataloader_val, shuffle)
-        print("OOD data")
-        dataloader_ood = DataLoader(dataset_ood, batch_size, shuffle)
-        accu_score_ood = self.inference(self.classifier_ft, dataloader_ood, True)
-        print("Fine-tuned model's accuracy on IN data: {}, on OOD data: {}".format(accu_score_id, accu_score_ood))
+        # torch.save({"state_dict": self.classifier_ft.state_dict()}, self.ft_classifier_path)
+        #
+        # # evaluation of the fine-tuned model
+        # print("Evaluation of the fine-tuned model \n")
+        # print("ID data")
+        # dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
+        # accu_score_id = self.inference(self.classifier_ft, dataloader_val, shuffle)
+        # print("OOD data")
+        # dataloader_ood = DataLoader(dataset_ood, batch_size, shuffle)
+        # accu_score_ood = self.inference(self.classifier_ft, dataloader_ood, True)
+        # print("Fine-tuned model's accuracy on IN data: {}, on OOD data: {}".format(accu_score_id, accu_score_ood))

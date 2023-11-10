@@ -13,7 +13,7 @@ import os
 BASE_API_URL = "http://127.0.0.1:8000"  # Replace with your FastAPI server address
 
 
-def fetch_datasets(filter_prefix=None, filter_reviewed=False):
+def fetch_datasets(filter_prefix=None):
     """
     Fetches list of datasets from the FastAPI service.
 
@@ -32,9 +32,6 @@ def fetch_datasets(filter_prefix=None, filter_reviewed=False):
     # Filter the datasets based on the prefix if provided
     if filter_prefix:
         datasets = [dataset for dataset in datasets if dataset.startswith(filter_prefix)]
-
-    if filter_reviewed:
-        datasets = [dataset for dataset in datasets if dataset.get('reviewed')]
 
     return datasets
 
@@ -129,15 +126,19 @@ def run():
                            'OOD detection (Inference)',
                            'Fine-Tune'))
 
+    # if option == 'Fine-Tune':
+    #     # datasets = fetch_datasets(filter_prefix="FT")
+    #
+    #     ## TO do : filter on the datasets that already have been used for fine-tune ()
+    #     datasets = fetch_datasets(filter_reviewed=True)
+    #
+    #     for dataset_name in datasets:
+    #         files = fetch_files(dataset_name)
+    #         print(f"Files selected for fine-tuning in dataset {dataset_name}: {files}")
+    # else:
+    #     datasets = fetch_datasets()
     if option == 'Fine-Tune':
-        # datasets = fetch_datasets(filter_prefix="FT")
-
-        ## TO do : filter on the datasets that already have been used for fine-tune ()
-        datasets = fetch_datasets(filter_reviewed=True)
-
-        for dataset_name in datasets:
-            files = fetch_files(dataset_name)
-            print(f"Files selected for fine-tuning in dataset {dataset_name}: {files}")
+        datasets = fetch_datasets(filter_prefix="FT")
     else:
         datasets = fetch_datasets()
     # st.write(datasets)
