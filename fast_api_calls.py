@@ -376,13 +376,14 @@ class UpdateGroundTruth(BaseModel):
     file_names: List[str]
     class_ground_truth: str
     # dataset : str
+    reviewed: bool
 
 @app.post("/update_ground_truth/")
 async def update_ground_truth(data: UpdateGroundTruth):
     for file_name in data.file_names:
         collection.update_one(
             {"file_name": file_name},
-            {"$set": {"class_ground_truth": data.class_ground_truth}}
+            {"$set": {"class_ground_truth": data.class_ground_truth, "reviewed": data.reviewed}}
         )
     return {"status": "Ground truth updated successfully"}
 

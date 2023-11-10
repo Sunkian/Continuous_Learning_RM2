@@ -69,6 +69,7 @@ def review():
             "file_names": selected_images,
             "class_ground_truth": class_ground_truth,
             # "dataset": "FT_" + img_info["dataset"]
+            "reviewed": True
         }
         response = requests.post(f"{BASE_API_URL}/update_ground_truth/", json=payload)
         if response.status_code == 200:

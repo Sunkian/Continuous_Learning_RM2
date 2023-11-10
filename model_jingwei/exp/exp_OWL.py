@@ -120,7 +120,6 @@ class Exp_OWL(Exp_OWLbasic):
                     if fine_tuned and split == 'val':
                         metadata['updated_label'] = int(label[idx])
 
-
                     # if split == 'val':
                     #     metadata['updated_label'] = int(label[idx])
                     #
@@ -247,7 +246,6 @@ class Exp_OWL(Exp_OWLbasic):
         prepos_feat = lambda x: np.ascontiguousarray(
             normalizer(x))  # Last Layer only ## x is changed from multi-layer features to single-layer features
 
-
         for split in ['train', 'val']:
             # cache_name = self.cache_path + f"{id_name}_{split}_{self.args.name}.npz"
             # data = np.load(cache_name, allow_pickle=True)
@@ -341,7 +339,7 @@ class Exp_OWL(Exp_OWLbasic):
         id_name = self.args.in_dataset
         # id_name = self.args.in_dataset + "_ft" #### For fine-tuning !!
 
-# Lire les features directement à partir de la base de données updatée
+        # Lire les features directement à partir de la base de données updatée
         caches_id = self.read_id(id_name)
         caches_ood = self.read_ood(ood_name)
 
@@ -349,7 +347,6 @@ class Exp_OWL(Exp_OWLbasic):
         #
         # print('Caches ID', caches_id.keys())
         # print('Caches OOD', caches_ood.keys())
-
 
         feat_id_train = caches_id["id_feat_train"]
         # print('FEAT ID TRAIN', feat_id_train)
@@ -360,8 +357,6 @@ class Exp_OWL(Exp_OWLbasic):
         names = caches_ood['names']
 
         # print(names)
-
-
 
         # print('SHAPE', feat_id_train.shape[1])
 
@@ -477,7 +472,8 @@ class Exp_OWL(Exp_OWLbasic):
         loader_out = get_loader_out(self.args, dataset=(None, ood_name), split=('val'))
         self.val_loader_out = loader_out.val_ood_loader  # take the val/test batch of the ood data
 
-        # print('TESTTTTT',self.val_loader_out.dataset[0])
+        print('Val Loader Out ', self.val_loader_out)
+        print('Val Loader Out dataset', self.val_loader_out.dataset[0])
         x_ood = np.array(torch.stack([x for x, _ in self.val_loader_out.dataset]))  # (N, H, W, C)
         y_ood = np.array([y for _, y in self.val_loader_out.dataset])  # (N)
 
@@ -644,19 +640,18 @@ class Exp_OWL(Exp_OWLbasic):
 
         return losses.avg
 
-    def inference(self, model, dataloader, metrics=True):
+    def inference(self, model, dataloader, metrics=True, class_names=None):
         """
-
         :param self:
         :param model: classifier
         :param metrics:
-        :return:
+        :param class_names: dictionary mapping labels to class names
+        :return: accuracy score, list of tuples containing predicted labels and class names
         """
-
         model.eval()
         preds, ground_truths = [], []
+        output_info = []  # List to store the output information
 
-        # (N, H, W, C), (N)
         for batch_idx, (batch_x, batch_y) in enumerate(dataloader):
             out = model(batch_x.float()).detach().cpu().numpy()
             preds.append(out)
@@ -665,20 +660,27 @@ class Exp_OWL(Exp_OWLbasic):
                 print(f"inference batches: {batch_idx}/{len(dataloader)}")
 
         preds = np.concatenate(preds, axis=0)  # (N, C)
-        preds = np.argmax(preds, axis=1)  # (N)
-        print('Pred : ', preds)
+        pred_labels = np.argmax(preds, axis=1)  # (N)
         ground_truths = np.concatenate(ground_truths, axis=0)
+
+        # Collect class names and labels
+        if class_names:
+            for i, pred_label in enumerate(pred_labels):
+                class_name = class_names[pred_label]
+                output_info.append((pred_label, class_name))  # Store the label and class name
+                print(f'Prediction: Class {class_name}, Label: {pred_label}')
 
         print('inference dataset info: ', np.unique(ground_truths, return_counts=True))
 
-
         if metrics:
-            print(classification_report(ground_truths, preds, digits=5))
+            print(classification_report(ground_truths, pred_labels, digits=5))
 
-        return accuracy_score(ground_truths, preds)
-
+        accuracy = accuracy_score(ground_truths, pred_labels)
+        return accuracy, output_info
 
     def train_global(self, ood_name, shuffle, ood_class, n_ood):
+        class_names = {0: 'Airplane', 1: 'Automobile', 2: 'Bird', 3: 'Cat', 4: 'Deer', 5: 'Dog', 6: 'Frog', 7: 'Horse',
+                       8: 'Ship', 9: 'Truck'}
         base_model_name = self.args.name.split('_')[0]
 
         n_new_class = len(ood_class)
@@ -709,14 +711,34 @@ class Exp_OWL(Exp_OWLbasic):
             print(f"Init classifier exist in {self.init_classifier_path}\n")
             self.classifier_init = get_classifier(self.args, self.num_classes, load_ckpt=True, classifier_flag='init')
 
-            # evaluation of the init model
-        print("Evaluation of the init model \n")
-        dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
-        accu_score_id = self.inference(self.classifier_init, dataloader_val, shuffle)
+        #     # evaluation of the init model
+        # print("Evaluation of the init model \n")
+        # dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
+        # accu_score_id = self.inference(self.classifier_init, dataloader_val, shuffle, class_names=class_names)
+        # dataloader_ood = DataLoader(dataset_ood, batch_size, shuffle)
+        # accu_score_ood = self.inference(self.classifier_init, dataloader_ood, shuffle, class_names=class_names)
+        # print("Initial model's accuracy on IN data: {}, on OOD data: {}".format(accu_score_id, accu_score_ood))
 
+        # Evaluation of the init model
+        print("Evaluation of the init model \n")
+
+        # Evaluate on In-Distribution Validation Data
+        dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
+        accu_score_id, id_predictions = self.inference(self.classifier_init, dataloader_val, shuffle,
+                                                       class_names=class_names)
+        print("Initial model's accuracy on IN data: {}".format(accu_score_id))
+        for label, class_name in id_predictions:
+            print(f'IN Data - Prediction: Class {class_name}, Label: {label}')
+
+        # Evaluate on Out-of-Distribution Data
         dataloader_ood = DataLoader(dataset_ood, batch_size, shuffle)
-        accu_score_ood = self.inference(self.classifier_init, dataloader_ood, shuffle)
-        print("Initial model's accuracy on IN data: {}, on OOD data: {}".format(accu_score_id, accu_score_ood))
+        accu_score_ood, ood_predictions = self.inference(self.classifier_init, dataloader_ood, shuffle,
+                                                         class_names=class_names)
+        print("Initial model's accuracy on OOD data: {}".format(accu_score_ood))
+        for label, class_name in ood_predictions:
+            print(f'OOD Data - Prediction: Class {class_name}, Label: {label}')
+
+        # ----------------------------------------------------------------
 
         # Fine-tuning with ood data
         ft_dataloader = self.build_ft_dataloader(ood_name, batch_size, shuffle, ood_class, n_ood)
@@ -736,7 +758,6 @@ class Exp_OWL(Exp_OWLbasic):
         feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
         feat_ood, y_ood = self.ns_feature_extract(self.model, ft_dataloader, ood_name + "_ft")
 
-
         response = requests.get(f"http://127.0.0.1:8000/list_files/{ood_name}/")
         if response.status_code == 200:
             file_data = response.json()
@@ -744,8 +765,6 @@ class Exp_OWL(Exp_OWLbasic):
         else:
             print("Failed to retrieve filenames!")
             filenames = []  # Empty list as a fallback
-
-
 
         for fname, f_ood, y in zip(filenames, feat_ood, y_ood):
             response = requests.post("http://127.0.0.1:8000/update_data_collection/", json={
@@ -773,10 +792,7 @@ class Exp_OWL(Exp_OWLbasic):
                                                             epochs=self.args.epochs_clf)
         torch.save({"state_dict": self.classifier_ft.state_dict()}, self.ft_classifier_path)
 
-
-
-
-        # evaluation of the fine-tuned model 
+        # evaluation of the fine-tuned model
         print("Evaluation of the fine-tuned model \n")
         print("ID data")
         dataloader_val = DataLoader(dataset_val, batch_size, shuffle)
