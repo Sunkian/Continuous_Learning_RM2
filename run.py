@@ -148,6 +148,7 @@ def run():
 
     # Fetch and display the list of files for the selected dataset
     files = fetch_files(selected_dataset)
+    print('FILES', len(files))
     # selected_file = st.selectbox("Select an Image:", files)
 
 
