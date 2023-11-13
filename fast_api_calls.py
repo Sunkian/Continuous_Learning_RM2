@@ -165,7 +165,8 @@ class FeatureData(BaseModel):
     data_name: str
     dataset_split: str
     feat_log: list
-    ground_truth_label: int
+    # ground_truth_label: int
+    ground_truth_label: Optional[int] = None
     updated_label: Optional[int] = None
     repr_flag: bool = None  # If this is optional
 
@@ -604,6 +605,7 @@ async def update_data_collection(data: DataUpdate):
     return {"message": f"Data for {data.file_name} updated successfully in data collection!"}
 
 
+# Works
 from pymongo import UpdateOne
 @app.post("/update_feature_data/")
 async def update_feature_data(data_list: List[FeatureData]):
@@ -615,10 +617,10 @@ async def update_feature_data(data_list: List[FeatureData]):
         if data.dataset_split == "train":
             bulk_ops_train.append(UpdateOne(filter_query, {"$set": update_data}, upsert=True))
         elif data.dataset_split == "val":
-            existing_data = val_collection.find_one(filter_query)
-            if existing_data and 'updated_label' not in existing_data:
-                # If existing data does not have 'updated_label', set it to the current ground_truth_label
-                update_data['updated_label'] = data.ground_truth_label
+            # existing_data = val_collection.find_one(filter_query)
+            # if existing_data and 'updated_label' not in existing_data:
+            #     # If existing data does not have 'updated_label', set it to the current ground_truth_label
+            #     update_data['updated_label'] = data.ground_truth_label
             bulk_ops_val.append(UpdateOne(filter_query, {"$set": update_data}, upsert=True))
 
     if bulk_ops_train:
@@ -699,3 +701,24 @@ async def get_image_data(dataset_name: str):
     ]
 
     return {"image_data": image_data_response}
+
+
+
+
+
+# @app.get("/ground_truth_labels/")
+# async def get_ground_truth_labels():
+#     # This pipeline will group documents by `ground_truth_label` and return each one only once
+#     pipeline = [
+#         {"$group": {"_id": "$ground_truth_label", "count": {"$sum": 1}}}
+#     ]
+#     result = collection.aggregate(pipeline)
+#     # Extracting the labels from the aggregation result
+#     labels = [doc['_id'] for doc in result]
+#     return {"ground_truth_labels": labels}
+@app.get("/get_class_names/")
+async def get_class_names():
+    class_ground_truths = collection.distinct("class_ground_truth")
+    class_names = {index: name for index, name in enumerate(class_ground_truths)}
+    return class_names
+

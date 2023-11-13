@@ -25,7 +25,7 @@ class CustomDataset(data.Dataset):
         for item in image_data.get("image_data", []):
             self.image_paths.append(item.get('image_path'))
             # Assign a default target of 0 if not provided
-            self.targets.append(item.get('target', 0))
+            self.targets.append(item.get('target', None))
 
     def __getitem__(self, idx):
         img_path = self.image_paths[idx]

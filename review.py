@@ -57,7 +57,7 @@ def review():
 
                     dataset_name = img_info.get("dataset",
                                                 "Unknown dataset")  # Use a default value if dataset is missing
-                    cols[j].image(image, caption=f"{img_info['file_name']} ({dataset_name}) {img_info['class_ground_truth']}", use_column_width=True)
+                    cols[j].image(image, caption=f"{img_info['file_name']} ({dataset_name}) ", use_column_width=True)
                 else:
                     cols[j].write(f"Image not found: {img_info['file_name']}")
     class_ground_truth = st.text_input("Enter new batch name:")

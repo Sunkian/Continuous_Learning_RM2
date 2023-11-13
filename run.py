@@ -120,6 +120,7 @@ def run():
 
 
 
+
     option = st.selectbox('Select an option :',
                           (
                            'NS feature extraction',
@@ -145,6 +146,12 @@ def run():
 
     # Let user select a dataset using Streamlit
     selected_dataset = st.selectbox("Select a dataset:", datasets)
+
+    if st.button('INFERENCE'):
+        ood_class = [0, 1]
+        args = get_args()
+        exp = Exp_OWL(args)
+        exp.run_inference_and_update(selected_dataset, shuffle=False, ood_class=ood_class)
 
     # Fetch and display the list of files for the selected dataset
     files = fetch_files(selected_dataset)
@@ -218,7 +225,7 @@ def run():
             print('>>>>>>>start incremental learning on new-coming data : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(
                 selected_dataset))
             ood_class = [0, 1]  # select two classes in ood data as unrecognized/new classes
-            n_ood = 5  # take 50 ood samples
+            n_ood = 15  # take 50 ood samples
             exp.train_global(selected_dataset, True, ood_class, n_ood)
             st.success('Fine-Tune successfully done')
 
