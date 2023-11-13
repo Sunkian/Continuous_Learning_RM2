@@ -147,11 +147,11 @@ def run():
     # Let user select a dataset using Streamlit
     selected_dataset = st.selectbox("Select a dataset:", datasets)
 
-    if st.button('INFERENCE'):
-        ood_class = [0, 1]
-        args = get_args()
-        exp = Exp_OWL(args)
-        exp.run_inference_and_update(selected_dataset, shuffle=False, ood_class=ood_class)
+    # if st.button('INFERENCE'):
+    #     ood_class = [0, 1]
+    #     args = get_args()
+    #     exp = Exp_OWL(args)
+    #     exp.run_inference_and_update(selected_dataset, shuffle=False, ood_class=ood_class)
 
     # Fetch and display the list of files for the selected dataset
     files = fetch_files(selected_dataset)

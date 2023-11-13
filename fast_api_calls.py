@@ -666,7 +666,7 @@ async def get_id_data():
     id_data = list(id_data_cursor)
     # Assuming the features and labels are stored with keys 'feat_log' and 'label'
     id_feat = [data['feat_log'] for data in id_data]
-    id_label = [data['label'] for data in id_data]
+    id_label = [data['ground_truth_label'] for data in id_data]
     return {"id_feat": id_feat, "id_label": id_label}
 
 @app.get("/get_ood_data/{dataset_name}")
@@ -696,6 +696,7 @@ async def get_image_data(dataset_name: str):
         {
             "image_path": item["file_path"],
             "target": item.get("ood_label", 0)  # Provide default target if not present
+            # "target": item.get("ood_label")  # Provide default target if not present
         }
         for item in image_data_list
     ]
@@ -722,3 +723,15 @@ async def get_class_names():
     class_names = {index: name for index, name in enumerate(class_ground_truths)}
     return class_names
 
+
+
+
+@app.post("/update_ood_class/")
+async def update_ood_class(dataset_name: str, ood_classes: List[int]):
+    # Logic to update the OOD classes in the database for the given dataset_name
+    # This might involve setting a flag or updating a field in your database records
+    updated_count = db.your_collection.update_many(
+        {"dataset_name": dataset_name},
+        {"$set": {"ood_classes": ood_classes}}
+    )
+    return {"message": f"Updated {updated_count.modified_count} records with OOD class information."}
