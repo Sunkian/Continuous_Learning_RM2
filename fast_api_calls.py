@@ -368,7 +368,7 @@ async def update_results(data: List[UpdateData]):
 
 @app.get("/get_ood_images/")
 async def get_ood_images():
-    ood_images = list(collection.find({"bool_ood": True}, {"_id": 0, "file_path": 1, "file_name": 1, "dataset": 1, "class_ground_truth" : 1}))
+    ood_images = list(collection.find({"bool_ood": True}, {"reviewed": False}, {"_id": 0, "file_path": 1, "file_name": 1, "dataset": 1, "class_ground_truth" : 1}))
     return ood_images
 
 
@@ -735,3 +735,19 @@ async def update_ood_class(dataset_name: str, ood_classes: List[int]):
         {"$set": {"ood_classes": ood_classes}}
     )
     return {"message": f"Updated {updated_count.modified_count} records with OOD class information."}
+
+
+
+from bson import ObjectId
+
+@app.get("/get_data_by_dataset/{dataset_name}/")
+async def get_data_by_dataset(dataset_name: str):
+    documents = collection.find({"dataset": dataset_name})
+
+    # Convert documents to a list of dictionaries and handle ObjectId fields
+    data = []
+    for doc in documents:
+        doc['_id'] = str(doc['_id'])  # Convert ObjectId to string
+        data.append(doc)
+
+    return data

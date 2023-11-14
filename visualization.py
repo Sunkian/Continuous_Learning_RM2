@@ -1,5 +1,5 @@
 import os
-
+import pandas as pd
 import requests
 import streamlit as st
 import numpy as np
@@ -13,6 +13,65 @@ from model_jingwei.exp.exp_OWL import Exp_OWL
 
 CLASS_NAMES = ["airplane", "automobile", "bird", "cat", "deer",
                "dog", "frog", "horse", "ship", "truck"]
+
+def view_data_tab():
+    st.title("View Dataset Data")
+    available_datasets = fetch_datasets()  # Assuming this function fetches the list of datasets
+    selected_dataset = st.selectbox("Select a Dataset", available_datasets)
+
+    if selected_dataset:
+        # Fetch data for the selected dataset from your FastAPI backend
+        response = requests.get(f"http://localhost:8000/get_data_by_dataset/{selected_dataset}")
+        if response.status_code == 200:
+            dataset_data = response.json()
+
+            # Convert the data to a pandas DataFrame
+            df = pd.DataFrame(dataset_data)
+            st.dataframe(df, use_container_width=True)  # Display the data in a DataFrame
+
+        else:
+            st.error("Failed to fetch data from the server.")
+
+def fetch_data(dataset_name):
+    """Fetches data from the FastAPI backend for a given dataset."""
+    response = requests.get(f"http://localhost:8000/get_data_by_dataset/{dataset_name}")
+    if response.status_code == 200:
+        return pd.DataFrame(response.json())
+    else:
+        return None
+
+def plot_data(df, x_col, y_col):
+    """Plots the data based on selected x and y columns."""
+    fig, ax = plt.subplots()
+    ax.scatter(df[x_col], df[y_col])
+    ax.set_xlabel(x_col)
+    ax.set_ylabel(y_col)
+    ax.set_title(f"{y_col} vs {x_col}")
+    st.pyplot(fig)
+
+def interactive_plot_tab():
+    """Tab for interactive plotting."""
+    st.title("Interactive Data Plot")
+
+    available_datasets = fetch_datasets()  # Fetch datasets
+    selected_dataset = st.selectbox("Select a Dataset", available_datasets)
+
+    if selected_dataset:
+        df = fetch_data(selected_dataset)  # Fetch data for the selected dataset
+
+        if df is not None and not df.empty:
+            # Dropdowns for selecting columns
+            columns = df.columns
+            x_col = st.selectbox("Select X Axis", columns, index=0)
+            y_col = st.selectbox("Select Y Axis", columns, index=1)
+
+            if st.button("Plot"):
+                plot_data(df, x_col, y_col)
+        else:
+            st.error("Failed to fetch data or dataset is empty.")
+
+
+
 
 # def load_local_npz(file_name):
 #     with np.load("/Users/apagnoux/Downloads/Continuous_Learning_RM2-master/cache/CIFAR-10_val_resnet18-supcon.npz") as data:
@@ -161,48 +220,47 @@ def fetch_datasets(filter_prefix=None):
 def visuuu():
     st.title(f"T-SNE Visualization of ID vs TEST Embeddings on the same graph")
 
+    option = st.selectbox('Select an option :',
+                          (
+                           'Data frames',
+                           'Graphs', 'Interactive Plot'))
+
     # available_files = [f for f in os.listdir('cache/') if f.endswith('.npz')]
     available_files = fetch_datasets()
 
-    # Allow the user to select a file
-    # selected_id_file = st.selectbox('Select the ID data file:', available_files, index=0)
-    # selected_id_file = 'CIFAR-10_train_resnet18-supcon_in_alllayers.npz'
-    # id_files = [f for f in available_files if f.startswith('CIFAR-10_')]
-    # selected_id_file = st.selectbox('Select the ID data file:', id_files)
-    # # selected_ood_file = st.selectbox('Select the OOD data file:', available_files, index=1)
-
     ood_files = [f for f in available_files if not f.startswith('CIFAR-10_')]
 
-    # Allow the user to select an OOD file
-    selected_ood_file = st.selectbox('Select the OOD data file:', ood_files)
+    if option == 'Graphs':
 
-    # Commented out the OOD Detection for now since it's not the focus
-    # of your current request
+        st.write("Graphs Visualization")
 
-    # if st.button("Show Graph"):
-    #     # Load and process the data
-    #     id_feat, id_label = load_id_data(selected_id_file)
-    #     ood_feat, ood_score = load_ood_data(selected_ood_file)
-    #
-    #     # Display UMAP visualization
-    #     # st.pyplot(plot_tsne(id_feat, id_label, ood_feat, ood_score))
-    #     st.pyplot(plot_umap_v2(id_feat, id_label, ood_feat, ood_score))
+        # Allow the user to select an OOD file
+        selected_ood_file = st.selectbox('Select the OOD data file:', ood_files)
 
-    visualization_options = ["UMAP", "T-SNE"]
-    selected_visualizations = st.multiselect("Choose visualization methods:", visualization_options,
-                                             default=visualization_options)
 
-    if st.button("Show Graph"):
-        # Load and process the data
-        id_feat, id_label = load_id_data()
-        ood_feat, ood_score = load_ood_data(selected_ood_file)
-        print('OOD FEAT', ood_feat)
 
-        if "UMAP" in selected_visualizations:
-            st.write("UMAP Visualization:")
-            st.pyplot(plot_umap_v2(id_feat, id_label, ood_feat, ood_score))
+        visualization_options = ["UMAP", "T-SNE"]
+        selected_visualizations = st.multiselect("Choose visualization methods:", visualization_options,
+                                                 default=visualization_options)
 
-        if "T-SNE" in selected_visualizations:
-            st.write("T-SNE Visualization:")
-            st.pyplot(plot_tsne(id_feat, id_label, ood_feat, ood_score))
+        if st.button("Show Graph"):
+            # Load and process the data
+            id_feat, id_label = load_id_data()
+            ood_feat, ood_score = load_ood_data(selected_ood_file)
+            print('OOD FEAT', ood_feat)
 
+            if "UMAP" in selected_visualizations:
+                st.write("UMAP Visualization:")
+                st.pyplot(plot_umap_v2(id_feat, id_label, ood_feat, ood_score))
+
+            if "T-SNE" in selected_visualizations:
+                st.write("T-SNE Visualization:")
+                st.pyplot(plot_tsne(id_feat, id_label, ood_feat, ood_score))
+
+    if option == 'Data frames':
+
+        st.write("Tabs Visualization")
+        view_data_tab()
+
+    if option == 'Interactive Plot':
+        interactive_plot_tab()

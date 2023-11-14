@@ -29,7 +29,7 @@ def get_args():
     parser.add_argument('--epochs', default=500, type=int, help='number of total epochs to run')
     parser.add_argument('--epochs-clf', default=2, type=int, help='number of total epochs for classifiers')
     parser.add_argument('--epochs-ft', default=2, type=int, help='number of total epochs for fine-tuning')
-    parser.add_argument('-b', '--batch-size', default=3000, type=int, help='mini-batch size')
+    parser.add_argument('-b', '--batch-size', default=64, type=int, help='mini-batch size')
     parser.add_argument('--start-epoch', default=0, type=int,
                         help='manual epoch number (useful on restarts)')
     parser.add_argument('--save-epoch', default=10, type=int,

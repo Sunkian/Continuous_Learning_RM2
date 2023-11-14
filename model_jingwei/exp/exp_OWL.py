@@ -857,6 +857,8 @@ class Exp_OWL(Exp_OWLbasic):
         feat_id_val, y_id_val = caches_id_ft["id_feat_val"], caches_id_ft["id_label_val"]
         feat_ood, y_ood = self.ns_feature_extract(self.model, ft_dataloader, ood_name + "_ft")
         #
+
+        # print('Extracting features for bool_ood : False data')
         ood_name_without_ft = ood_name.lstrip('FT_')
         # feat_ood_fboo, y_fboo = self.ns_feature_extract(self.model, ft_dataloader, ood_name_without_ft)
         caches_ood_w = self.read_ood(ood_name_without_ft)
